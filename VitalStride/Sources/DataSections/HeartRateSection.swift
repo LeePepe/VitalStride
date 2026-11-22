@@ -455,43 +455,10 @@ struct HeartRateDetailView: View {
                 }
 
                 AIDataAnalysisSection(sampleType: .heartRate)
-
-                Section {
-                    let displayLimit = 200
-                    let recentPoints = Array(dataPoints.suffix(displayLimit).reversed())
-                    ForEach(recentPoints) { point in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(point.startDate.formatted(.dateTime.month().day().hour().minute()))
-                                    .font(.subheadline)
-                                if let source = point.sourceName {
-                                    Text(source)
-                                        .font(.caption2)
-                                        .foregroundStyle(theme.secondaryForeground)
-                                }
-                            }
-                            Spacer()
-                            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                                Text(Int(point.value.rounded()).formatted())
-                                    .font(TypeScale.num)
-                                Text(String(localized: "BPM", comment: "Beats per minute"))
-                                    .font(.caption)
-                                    .foregroundStyle(theme.secondaryForeground)
-                            }
-                        }
-                        .accessibilityLabel(
-                            String(localized: "\(point.startDate.formatted(.dateTime.month().day().hour().minute()))，心率 \(Int(point.value.rounded())) BPM", comment: "Sample row a11y")
-                        )
-                    }
-                    if dataPoints.count > displayLimit {
-                        Text(String(localized: "显示最近 \(displayLimit) 条记录（共 \(dataPoints.count) 条）", comment: "Heart rate row cap note"))
-                            .font(.caption)
-                            .foregroundStyle(theme.secondaryForeground)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                } header: {
-                    Text("心率记录", comment: "Heart rate samples list header")
-                }
+                PlatformHealthDetailActionButton(
+                    title: String(localized: "four_layer_health_detail", defaultValue: "View details in Apple Health ↗", comment: "Open heart details in Apple Health"),
+                    trend: chartPoints.map(\.value)
+                )
             }
         }
         #if os(iOS)

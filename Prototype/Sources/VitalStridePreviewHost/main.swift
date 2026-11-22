@@ -87,11 +87,11 @@ private enum VitalStridePreviewHostRunner {
 
     static func parsePageTab(_ raw: String) -> VitalStridePreviewPageTab {
         let token = raw.lowercased()
-        if token == "2" || token.contains("heart") || token.contains("sleep") || token.contains("w2-3") {
+        if token == "2" || token == "l2" || token.contains("coupling") || token.contains("heart") || token.contains("sleep") || token.contains("w2-3") {
             return .page2HeartSleepCoupling
-        } else if token == "3" || token.contains("load") || token.contains("workout") || token.contains("w2-4") {
+        } else if token == "3" || token == "l3" || token.contains("readiness") || token.contains("periodization") || token.contains("load") || token.contains("workout") || token.contains("w2-4") {
             return .page3WorkoutLoadProgression
-        } else if token == "4" || token.contains("step") || token.contains("body") || token.contains("w2-5") {
+        } else if token == "4" || token == "l4" || token.contains("north-star") || token.contains("directive") || token.contains("step") || token.contains("body") || token.contains("w2-5") {
             return .page4StepsBodySettings
         } else {
             return .page1HolisticDashboard
@@ -101,19 +101,51 @@ private enum VitalStridePreviewHostRunner {
     static func archiveAndResetAllPageReceipts(explicitRound: Int? = nil) throws {
         for page in VitalStridePreviewPageTab.allCases {
             let receiptURL = URL(fileURLWithPath: "\(page.handoffDirectory)/receipts/preview-selection.json")
-            let writer = PreviewSelectionReceiptWriter(
+            try archiveAndResetReceipt(
                 fileURL: receiptURL,
-                defaultAppearance: page.defaultAppearance
+                label: page.goalSlug,
+                defaultAppearance: page.defaultAppearance,
+                explicitRound: explicitRound
             )
-            let result = try writer.archiveAndResetRound(
-                explicitRound: explicitRound,
-                defaultAppearance: page.defaultAppearance
-            )
-            if let archived = result.archivedURL {
-                print("Archived \(page.goalSlug) -> \(archived.path)")
-            }
-            print("Reset \(page.goalSlug) -> \(receiptURL.path)")
         }
+
+        // Preserve the owner's previous Loop 8 selections before resetting the
+        // layer receipts, so the new gallery never destroys historical feedback.
+        let legacySlugs = [
+            "vs-ui-l4-holistic-dashboard",
+            "vs-ui-l1-heart-sleep-detail",
+            "vs-ui-l2-workout-load-progression",
+            "vs-ui-l1-steps-body-settings"
+        ]
+        for slug in legacySlugs {
+            let receiptURL = URL(fileURLWithPath: "\(VitalStridePreviewPageTab.handoffRootDirectory)/\(slug)/receipts/preview-selection.json")
+            try archiveAndResetReceipt(
+                fileURL: receiptURL,
+                label: slug,
+                defaultAppearance: "light",
+                explicitRound: explicitRound
+            )
+        }
+
+        let rootReceipt = URL(fileURLWithPath: "\(VitalStridePreviewPageTab.handoffRootDirectory)/vs-layered-component-gallery/receipts/preview-selection.json")
+        try archiveAndResetReceipt(
+            fileURL: rootReceipt,
+            label: "vs-layered-component-gallery",
+            defaultAppearance: "light",
+            explicitRound: explicitRound
+        )
+    }
+
+    private static func archiveAndResetReceipt(
+        fileURL: URL,
+        label: String,
+        defaultAppearance: String,
+        explicitRound: Int?
+    ) throws {
+        let writer = PreviewSelectionReceiptWriter(fileURL: fileURL, defaultAppearance: defaultAppearance)
+        let result = try writer.archiveAndResetRound(explicitRound: explicitRound, defaultAppearance: defaultAppearance)
+        if let archived = result.archivedURL { print("Archived \(label) -> \(archived.path)") }
+        print("Reset \(label) -> \(fileURL.path)")
     }
 
     static func renderBoardSnapshot(page: VitalStridePreviewPageTab, to destination: URL) throws {
@@ -201,7 +233,7 @@ final class VitalStridePreviewHostAppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        win.title = "VitalStride 4-Page Section Gallery · 120Hz Native SwiftUI 10-Up Preview Host"
+        win.title = "VitalStride 4-Layer Component Gallery · 120Hz Native SwiftUI 10-Up Preview Host"
         win.contentViewController = hostingController
         win.center()
         win.makeKeyAndOrderFront(nil)

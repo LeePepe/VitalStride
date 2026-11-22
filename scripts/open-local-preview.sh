@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch or snapshot the 120Hz Native SwiftUI 4-Page × 10-Candidate VitalStride Preview Host
+# Launch or snapshot the 120Hz Native SwiftUI 4-Layer × 10-Candidate VitalStride Preview Host
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"

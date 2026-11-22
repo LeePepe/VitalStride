@@ -71,6 +71,12 @@ struct HeartSleepCouplingDetailTests {
         #expect(!source.contains("@unchecked Sendable"))
         #expect(!source.contains("nonisolated(unsafe)"))
         #expect(!source.contains("try!"))
+
+        let summarySource = try String(contentsOf: URL(fileURLWithPath: Self.sourcePath("../FourLayerSummaryComponents.swift")), encoding: .utf8)
+        #expect(summarySource.contains("PlatformHealthDetailActionButton"))
+        #expect(summarySource.contains("x-apple-health://"))
+        #expect(summarySource.contains("Compact7DayTrendPopover"))
+        #expect(!summarySource.contains("displayLimit = 200"))
     }
 
     @Test("Loading a real cache maps empty and populated heart-sleep evidence")

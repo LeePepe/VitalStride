@@ -347,11 +347,17 @@ struct StepsDetailView: View {
                 .listRowBackground(Color.clear)
             } else if let errorMessage {
                 Section {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(theme.secondaryForeground)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 200)
+                    VStack(spacing: 8) {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundStyle(theme.secondaryForeground)
+                        Button(String(localized: "holistic_retry_action", defaultValue: "Retry", comment: "Retry loading steps")) {
+                            Task { await loadData() }
+                        }
+                        .font(.caption.weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
                 }
                 .listRowBackground(Color.clear)
             } else {
@@ -388,27 +394,10 @@ struct StepsDetailView: View {
                 }
 
                 AIDataAnalysisSection(sampleType: .stepCount)
-
-                Section {
-                    ForEach(dailyData.reversed()) { item in
-                        HStack {
-                            Text(item.date, format: .dateTime.month().day().weekday())
-                            Spacer()
-                            Text(
-                                "\(item.totalSteps.formatted(.number)) "
-                                    + String(localized: "步", comment: "Steps unit")
-                            )
-                            .foregroundStyle(theme.secondaryForeground)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(
-                            "\(item.date.formatted(.dateTime.month().day())) \(item.totalSteps.formatted(.number)) "
-                                + String(localized: "步", comment: "Steps unit")
-                        )
-                    }
-                } header: {
-                    Text("按日明细", comment: "Daily breakdown section header")
-                }
+                PlatformHealthDetailActionButton(
+                    title: String(localized: "four_layer_health_detail", defaultValue: "View details in Apple Health ↗", comment: "Open steps details in Apple Health"),
+                    trend: dailyData.map { Double($0.totalSteps) }
+                )
             }
         }
         #if os(iOS)
