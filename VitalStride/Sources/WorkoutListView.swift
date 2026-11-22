@@ -75,8 +75,6 @@ struct WorkoutListView: View {
     @Environment(\.healthKitService) private var healthKitService
     @Environment(\.healthDataCache) private var healthDataCache
     @Environment(AppNavigation.self) private var navigation
-    @AppStorage(aiPrivacyConsentKey) private var privacyConsented = false
-    @State private var adviceViewModel = TrainingAdviceViewModel()
     @State private var showingStartOptions = false
     @State private var showingActiveWorkout = false
     @State private var pendingSource: WorkoutStartSource?
@@ -99,31 +97,14 @@ struct WorkoutListView: View {
     @Environment(\.theme) private var theme
     @Environment(\.workoutListSnapshotMode) private var snapshotMode
     @Environment(\.workoutListSnapshotRecords) private var snapshotRecords
-    // Spec 019 Stage 3c (T017): hand the app-installed sink to the
-    // training-advice VM in `onAppear`.
-    @Environment(\.routingSignalStore) private var signalStore
 
     @ViewBuilder
     private func listContent(
         unifiedWorkouts: [UnifiedWorkout],
-        shouldShowAdviceCard: Bool,
         canLoadMore: Bool,
         bannerState: WorkoutListStateBanner.LoadState?
     ) -> some View {
         List {
-            if shouldShowAdviceCard {
-                Section {
-                    AITrainingAdviceCard(
-                        state: adviceViewModel.state,
-                        isExpanded: adviceViewModel.isExpanded,
-                        onToggleExpand: { adviceViewModel.toggleExpand() },
-                        onRefresh: { adviceViewModel.refresh(modelContext: modelContext) }
-                    )
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-            }
-
             if let bannerState {
                 Section {
                     WorkoutListStateBanner(
@@ -197,12 +178,6 @@ struct WorkoutListView: View {
                 }
             }
         }
-        .task {
-            guard snapshotMode == .live else { return }
-            guard privacyConsented else { return }
-            adviceViewModel.signalStore = signalStore
-            adviceViewModel.loadAdviceIfNeeded(modelContext: modelContext)
-        }
     }
 
     var body: some View {
@@ -220,7 +195,6 @@ struct WorkoutListView: View {
         )
         let unifiedWorkouts = mergeResult.unified
         let hasAnyWorkouts = !unifiedWorkouts.isEmpty
-        let shouldShowAdviceCard = !unifiedWorkouts.isEmpty && privacyConsented
         // Bound only the App rows that hit the expensive `workout.exercises`
         // fault (MY-1077). HealthKit rows carry no faulting cost so they
         // stay fully rendered. We walk the unified stream once and keep every
@@ -279,7 +253,6 @@ struct WorkoutListView: View {
                     case .list:
                         listContent(
                             unifiedWorkouts: visible,
-                            shouldShowAdviceCard: shouldShowAdviceCard,
                             canLoadMore: canLoadMore,
                             bannerState: bannerState
                         )
@@ -301,9 +274,6 @@ struct WorkoutListView: View {
                 // swiftlint:disable:next no_hardcoded_chinese
                 String(localized: "训练", comment: "Workout tab title")
             )
-            .navigationDestination(isPresented: Bindable(navigation).showWorkoutLoadProgression) {
-                WorkoutLoadProgressionView()
-            }
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Picker(
@@ -323,15 +293,6 @@ struct WorkoutListView: View {
                         // swiftlint:disable:next no_hardcoded_chinese
                         String(localized: "训练视图模式", comment: "Workout view mode picker a11y label")
                     )
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    NavigationLink {
-                        WorkoutLoadProgressionView()
-                    } label: {
-                        Label(String(localized: "workout_load_entry", defaultValue: "Workout Load & Progression", comment: "Workout load detail entry"), systemImage: "chart.xyaxis.line")
-                    }
-                    .frame(minHeight: Space.minTapTarget)
-                    .contentShape(Rectangle())
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(

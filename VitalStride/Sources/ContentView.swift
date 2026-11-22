@@ -14,7 +14,7 @@ enum AppTab: Hashable {
 
 @Observable
 final class AppNavigation {
-    var selectedTab = AppTab.overview
+    var selectedTab = AppTab.workout
     /// Set by `CrashRecoveryModifier` when the user chooses "恢复训练".
     /// `WorkoutListView` observes this, opens `ActiveWorkoutView` in resume
     /// mode, and clears it back to `nil`.
@@ -24,30 +24,17 @@ final class AppNavigation {
 }
 
 struct ContentView: View {
+    static let visibleTabs: [AppTab] = [.workout, .settings]
+
     @State private var navigation = AppNavigation()
 
     var body: some View {
         @Bindable var nav = navigation
         TabView(selection: $nav.selectedTab) {
-            Tab(String(localized: "概览", comment: ""), systemImage: "chart.bar.fill", value: .overview) {
-                OverviewView()
-            }
-            .accessibilityLabel(String(localized: "概览", comment: "Overview tab a11y label"))
-
             Tab(String(localized: "训练", comment: ""), systemImage: "dumbbell.fill", value: .workout) {
                 WorkoutListView()
             }
             .accessibilityLabel(String(localized: "训练", comment: "Workouts tab a11y label"))
-
-            Tab(String(localized: "数据", comment: ""), systemImage: "heart.text.square.fill", value: .data) {
-                DataView()
-            }
-            .accessibilityLabel(String(localized: "数据", comment: "Data tab a11y label"))
-
-            Tab("AI", systemImage: "brain", value: .ai) {
-                AIView()
-            }
-            .accessibilityLabel(String(localized: "AI 助手", comment: "AI assistant tab a11y label"))
 
             Tab(String(localized: "设置", comment: ""), systemImage: "gearshape.fill", value: .settings) {
                 SettingsView()

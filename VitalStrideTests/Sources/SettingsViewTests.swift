@@ -89,4 +89,43 @@ struct SettingsViewTests {
         let document = ExportDocument(content: "{}")
         #expect(document.content == "{}")
     }
+
+    @Test("Pure strength refocus keeps 2-tab navigation and hides AI UI entry points")
+    func pureStrengthRefocusContract() throws {
+        let navigation = AppNavigation()
+        #expect(navigation.selectedTab == .workout)
+        #expect(ContentView.visibleTabs == [.workout, .settings])
+
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let contentSource = try String(
+            contentsOf: root.appendingPathComponent("VitalStride/Sources/ContentView.swift"),
+            encoding: .utf8
+        )
+        let workoutListSource = try String(
+            contentsOf: root.appendingPathComponent("VitalStride/Sources/WorkoutListView.swift"),
+            encoding: .utf8
+        )
+        let settingsSource = try String(
+            contentsOf: root.appendingPathComponent("VitalStride/Sources/SettingsView.swift"),
+            encoding: .utf8
+        )
+        let activeExerciseSource = try String(
+            contentsOf: root.appendingPathComponent("VitalStride/Sources/ActiveWorkout/ActiveExerciseSection.swift"),
+            encoding: .utf8
+        )
+
+        #expect(!contentSource.contains("OverviewView()"))
+        #expect(!contentSource.contains("DataView()"))
+        #expect(!contentSource.contains("AIView()"))
+        #expect(contentSource.contains("WorkoutListView()"))
+        #expect(contentSource.contains("SettingsView()"))
+        #expect(!workoutListSource.contains("AITrainingAdviceCard("))
+        #expect(!workoutListSource.contains("loadAdviceIfNeeded"))
+        #expect(!workoutListSource.contains("WorkoutLoadProgressionView()"))
+        #expect(!settingsSource.contains("AISettingsSection()"))
+        #expect(!activeExerciseSource.contains("active_workout.substitute.menu_title"))
+    }
 }
