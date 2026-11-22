@@ -111,6 +111,8 @@ public struct NoopWatchToPhoneSender: WatchToPhoneSending {
 ///     via `updateApplicationContext` for forward-compatibility, but they
 ///     should not be posted from watch code paths in this task's scope.
 public final class DefaultWatchToPhoneSender: WatchToPhoneSending {
+    public static let shared = DefaultWatchToPhoneSender()
+
     private let logger: Logger
 
     // `WCDelegateShim` is a non-Sendable NSObject subclass (required by the
@@ -124,14 +126,17 @@ public final class DefaultWatchToPhoneSender: WatchToPhoneSending {
     //     serial queue;
     //   * never mutated by us after init.
     // These invariants make it safe to share across concurrency domains.
+    nonisolated(unsafe) private static let sharedShim = WCDelegateShim(
+        logger: Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender.Shim")
+    )
     nonisolated(unsafe) private let shim: WCDelegateShim
 
     public init(inboundReceiver: (any WatchInboundReceiving)? = nil) {
         self.logger = Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender")
-        self.shim = WCDelegateShim(
-            logger: Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender.Shim"),
-            receiver: inboundReceiver
-        )
+        self.shim = Self.sharedShim
+        if let inboundReceiver {
+            self.shim.setReceiver(inboundReceiver)
+        }
         activate()
     }
 
@@ -140,8 +145,12 @@ public final class DefaultWatchToPhoneSender: WatchToPhoneSending {
             logger.info("watch_wcsession_unsupported")
             return
         }
-        WCSession.default.delegate = shim
-        WCSession.default.activate()
+        if WCSession.default.delegate !== shim {
+            WCSession.default.delegate = shim
+        }
+        if WCSession.default.activationState != .activated {
+            WCSession.default.activate()
+        }
     }
 
     /// Install or replace the inbound receiver after init. Safe to call at
