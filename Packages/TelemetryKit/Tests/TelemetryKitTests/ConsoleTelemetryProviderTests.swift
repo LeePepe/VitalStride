@@ -403,4 +403,54 @@ struct TelemetryEventFormattingTests {
         #expect(params[0].value == "100000")
         #expect(event.formattedString == "app_cpu_time_measured cpu_millis=100000")
     }
+
+    // MARK: - Watch workout & HealthKit persistence diagnostics (vs-watch-healthkit-sync)
+
+    @Test("watch_connection_changed exposes canonical state parameter")
+    func watchConnectionChangedParameters() {
+        let event = TelemetryEvent.watchConnectionChanged(state: "reachable")
+        #expect(event.eventName == "watch_connection_changed")
+        let params = event.parameters
+        #expect(params.count == 1)
+        #expect(params[0].key == "state")
+        #expect(params[0].value == "reachable")
+        #expect(event.formattedString == "watch_connection_changed state=reachable")
+    }
+
+    @Test("watch_heart_rate_stream_event exposes event milestone and sample_count without BPM")
+    func watchHeartRateStreamEventParameters() {
+        let event = TelemetryEvent.watchHeartRateStreamEvent(event: "first_sample", sampleCount: 1)
+        #expect(event.eventName == "watch_heart_rate_stream_event")
+        let params = event.parameters
+        #expect(params.count == 2)
+        #expect(params[0].key == "event")
+        #expect(params[0].value == "first_sample")
+        #expect(params[1].key == "sample_count")
+        #expect(params[1].value == "1")
+        #expect(event.formattedString == "watch_heart_rate_stream_event event=first_sample sample_count=1")
+    }
+
+    @Test("watch_set_completed_received exposes canonical status parameter")
+    func watchSetCompletedReceivedParameters() {
+        let event = TelemetryEvent.watchSetCompletedReceived(status: "applied")
+        #expect(event.eventName == "watch_set_completed_received")
+        let params = event.parameters
+        #expect(params.count == 1)
+        #expect(params[0].key == "status")
+        #expect(params[0].value == "applied")
+        #expect(event.formattedString == "watch_set_completed_received status=applied")
+    }
+
+    @Test("healthkit_workout_saved exposes source and status parameters")
+    func healthKitWorkoutSavedParameters() {
+        let event = TelemetryEvent.healthKitWorkoutSaved(source: "phone_builder", status: "success")
+        #expect(event.eventName == "healthkit_workout_saved")
+        let params = event.parameters
+        #expect(params.count == 2)
+        #expect(params[0].key == "source")
+        #expect(params[0].value == "phone_builder")
+        #expect(params[1].key == "status")
+        #expect(params[1].value == "success")
+        #expect(event.formattedString == "healthkit_workout_saved source=phone_builder status=success")
+    }
 }

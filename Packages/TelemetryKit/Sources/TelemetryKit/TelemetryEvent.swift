@@ -169,6 +169,40 @@ public enum TelemetryEvent: Sendable, Equatable {
     /// Cumulative foreground CPU time in the reporting window
     /// (`cpuMetrics.cumulativeCPUTime`, ms).
     case appCPUTimeMeasured(cpuMillis: Int)
+
+    // MARK: - Watch workout & HealthKit persistence diagnostics (vs-watch-healthkit-sync)
+
+    /// Watch connectivity state transition observed during an active workout.
+    ///
+    /// `state` is a canonical ASCII state identifier (e.g. `"reachable"`,
+    /// `"unreachable"`, `"not_paired"`, `"not_installed"`, `"unsupported"`).
+    /// Privacy (Constitution §I): no health values or device PII may be logged.
+    case watchConnectionChanged(state: TelemetryIdentifier)
+
+    /// Lifecycle milestone on the Watch live heart-rate stream.
+    ///
+    /// `event` is a canonical milestone identifier (e.g. `"session_started"`,
+    /// `"first_sample"`, `"stale_timeout"`, `"session_ended"`). `sampleCount`
+    /// is the pure count of heart-rate samples received so far in the session.
+    /// Privacy (Constitution §I): `sampleCount` is a sample counter only —
+    /// actual BPM or energy values MUST NEVER be passed here.
+    case watchHeartRateStreamEvent(event: TelemetryIdentifier, sampleCount: Int)
+
+    /// Outcome of handling a `SetCompletedEvent` sent from Apple Watch.
+    ///
+    /// `status` is a canonical result identifier (e.g. `"applied"`,
+    /// `"ignored_not_found"`). Privacy (Constitution §I): no weight, reps, or
+    /// health values may be encoded here.
+    case watchSetCompletedReceived(status: TelemetryIdentifier)
+
+    /// Result of persisting a completed strength workout to Apple Health.
+    ///
+    /// `source` identifies the writer path (e.g. `"phone_builder"`,
+    /// `"watch_session"`) and `status` identifies the outcome (e.g.
+    /// `"success"`, `"failed"`, `"skipped_unauthorized"`).
+    /// Privacy (Constitution §I): only canonical ASCII source/status tokens are
+    /// recorded — no workout metrics, heart rate, or calories.
+    case healthKitWorkoutSaved(source: TelemetryIdentifier, status: TelemetryIdentifier)
 }
 
 // MARK: - Console formatting
@@ -209,6 +243,10 @@ extension TelemetryEvent {
         case .appHangTimeMeasured: "app_hang_time_measured"
         case .appMemoryPeakMeasured: "app_memory_peak_measured"
         case .appCPUTimeMeasured: "app_cpu_time_measured"
+        case .watchConnectionChanged: "watch_connection_changed"
+        case .watchHeartRateStreamEvent: "watch_heart_rate_stream_event"
+        case .watchSetCompletedReceived: "watch_set_completed_received"
+        case .healthKitWorkoutSaved: "healthkit_workout_saved"
         }
     }
 
@@ -260,6 +298,14 @@ extension TelemetryEvent {
             [("peak_memory_mb", "\(mb)")]
         case .appCPUTimeMeasured(let millis):
             [("cpu_millis", "\(millis)")]
+        case .watchConnectionChanged(let state):
+            [("state", state.rawValue)]
+        case .watchHeartRateStreamEvent(let event, let sampleCount):
+            [("event", event.rawValue), ("sample_count", "\(sampleCount)")]
+        case .watchSetCompletedReceived(let status):
+            [("status", status.rawValue)]
+        case .healthKitWorkoutSaved(let source, let status):
+            [("source", source.rawValue), ("status", status.rawValue)]
         default:
             []
         }
