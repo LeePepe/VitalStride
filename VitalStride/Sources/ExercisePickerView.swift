@@ -124,6 +124,14 @@ struct ExercisePickerScrollArbitrator {
     }
 }
 
+/// MainActor-isolated reference box holding `ExercisePickerScrollArbitrator`
+/// so high-frequency `onScrollPhaseChange` callbacks can update scroll phase
+/// without invalidating `ExercisePickerView.body` on every scroll frame.
+@MainActor
+private final class ScrollArbitratorBox {
+    var value = ExercisePickerScrollArbitrator()
+}
+
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
@@ -138,6 +146,7 @@ struct ExercisePickerView: View {
     @State private var selectedEquipmentFilter: Equipment?
     @State private var selectedIDs: Set<PersistentIdentifier> = []
     @State private var selectedExercises: [Exercise] = []
+    @State private var selectedCountsByMuscle: [MuscleGroup: Int] = [:]
     @State private var visibleEquipment: ExerciseSection?
     @State private var presentedSheet: PickerSheet?
     @State private var pendingDeletion: Exercise?
@@ -150,7 +159,10 @@ struct ExercisePickerView: View {
     /// for high-count bursts that indicate the highlight is racing through
     /// neighbours instead of settling on the finger's target.
     @State private var dragScrubCount: Int = 0
-    @State private var cachedEquipmentGroups: [(ExerciseSection, [Exercise])]?
+    @State private var cachedSnapshots: [ExercisePickerCardSnapshot] = []
+    @State private var cachedExercisesByID: [PersistentIdentifier: Exercise] = [:]
+    @State private var cachedEquipmentGroups: [(ExerciseSection, [ExercisePickerCardSnapshot])]?
+    @State private var cachedAvailableEquipments: [Equipment] = []
     // MY-1249 + MY-1250 reconciliation: MY-1250 previously reset the card-grid
     // scroll to the top on filter/search change by writing `visibleEquipment`
     // and letting `.scrollPosition(id:)` push the offset. MY-1249 removed
@@ -178,7 +190,8 @@ struct ExercisePickerView: View {
     // height is intrinsic (does not depend on the margin it drives). On iOS 26
     // the panel is a `.safeAreaBar` and this stays 0.
     @State private var panelHeight: CGFloat = 0
-    @State private var scrollArbitrator = ExercisePickerScrollArbitrator()
+    @State private var scrollArbitratorBox = ScrollArbitratorBox()
+    @State private var selectionSettleGeneration: UInt = 0
 
     let selectionMode: SelectionMode
 
@@ -206,31 +219,57 @@ struct ExercisePickerView: View {
         return false
     }
 
-    private var equipmentGroups: [(ExerciseSection, [Exercise])] {
-        cachedEquipmentGroups ?? Self.computeEquipmentGroups(
-            from: exercises,
+    private var equipmentGroups: [(ExerciseSection, [ExercisePickerCardSnapshot])] {
+        cachedEquipmentGroups ?? Self.computeSnapshotGroups(
+            from: cachedSnapshots.isEmpty ? ExercisePickerSectionGrouping.makeSnapshots(from: exercises) : cachedSnapshots,
             muscleGroup: selectedMuscleGroup,
             searchText: debouncedSearchText
         )
     }
 
-    private var filteredEquipmentGroups: [(ExerciseSection, [Exercise])] {
+    private var filteredEquipmentGroups: [(ExerciseSection, [ExercisePickerCardSnapshot])] {
         filteredEquipmentGroups(for: selectedEquipmentFilter)
     }
 
     private func filteredEquipmentGroups(
         for equipmentFilter: Equipment?
-    ) -> [(ExerciseSection, [Exercise])] {
+    ) -> [(ExerciseSection, [ExercisePickerCardSnapshot])] {
         guard let equipmentFilter else { return equipmentGroups }
-        return equipmentGroups.compactMap { section, exercises in
-            let filtered = exercises.filter { $0.equipment == equipmentFilter }
+        return equipmentGroups.compactMap { section, snapshots in
+            let filtered = snapshots.filter { $0.equipment == equipmentFilter }
             return filtered.isEmpty ? nil : (section, filtered)
         }
     }
 
     private var availableEquipmentFilters: [Equipment] {
-        let available = equipmentGroups.flatMap { $0.1.map(\.equipment) }
-        return Equipment.allCases.filter { available.contains($0) }
+        if cachedEquipmentGroups != nil {
+            return cachedAvailableEquipments
+        }
+        return Self.computeAvailableEquipmentFilters(from: equipmentGroups)
+    }
+
+    private static func computeAvailableEquipmentFilters(
+        from groups: [(ExerciseSection, [ExercisePickerCardSnapshot])]
+    ) -> [Equipment] {
+        var seen = Set<Equipment>()
+        for (_, items) in groups {
+            for item in items {
+                seen.insert(item.equipment)
+            }
+        }
+        return Equipment.allCases.filter { seen.contains($0) }
+    }
+
+    static nonisolated func computeSnapshotGroups(
+        from snapshots: [ExercisePickerCardSnapshot],
+        muscleGroup: MuscleGroup?,
+        searchText: String
+    ) -> [(ExerciseSection, [ExercisePickerCardSnapshot])] {
+        ExercisePickerSectionGrouping.groupedSnapshotSections(
+            from: snapshots,
+            muscleGroup: muscleGroup,
+            searchText: searchText
+        )
     }
 
     static nonisolated func computeEquipmentGroups(
@@ -253,11 +292,6 @@ struct ExercisePickerView: View {
 
     static let gridColumnCount = 2
     static let muscleSidebarWidth: CGFloat = 64
-
-    private var exerciseRevisions: [ExercisePickerRevision] {
-        exercises.map { ExercisePickerRevision(id: $0.persistentModelID, nameEn: $0.nameEn,
-                                              nameZh: $0.nameZh, muscle: $0.muscleGroup, equipment: $0.equipment) }
-    }
 
     private var gridColumns: [GridItem] {
         let isAccessibilityLayout: Bool
@@ -316,37 +350,36 @@ struct ExercisePickerView: View {
             .alert(String(localized: "picker.save.failed", comment: "Exercise save failure"), isPresented: $saveFailed) {
                 Button(String(localized: "picker.ok", comment: "Dismiss exercise error"), role: .cancel) {}
             }
-            .onAppear { refreshGroups() }
+            .onAppear { rebuildSnapshotCatalog() }
             .task(id: indexHUD) {
                 guard indexHUD != nil else { return }
                 try? await Task.sleep(for: .milliseconds(700))
                 guard !Task.isCancelled else { return }
                 indexHUD = nil
             }
-            .task(id: scrollArbitrator.selectionGeneration) {
-                guard scrollArbitrator.programmaticTarget != nil else { return }
+            .task(id: selectionSettleGeneration) {
+                guard scrollArbitratorBox.value.programmaticTarget != nil else { return }
                 guard draggedEquipment == nil else { return }
-                let generation = scrollArbitrator.selectionGeneration
+                let generation = selectionSettleGeneration
                 try? await Task.sleep(for: .milliseconds(320))
                 guard !Task.isCancelled else { return }
                 guard draggedEquipment == nil else { return }
-                scrollArbitrator.settle(generation: generation)
+                scrollArbitratorBox.value.settle(generation: generation)
             }
-            .onChange(of: exerciseRevisions) { _, _ in
-                let newExercises = exercises
-                cachedEquipmentGroups = Self.computeEquipmentGroups(
-                    from: newExercises,
-                    muscleGroup: selectedMuscleGroup,
-                    searchText: debouncedSearchText
-                )
+            .onChange(of: exercises.count) { _, _ in
+                rebuildSnapshotCatalog()
             }
             .onChange(of: selectedMuscleGroup) { _, newGroup in
-                let newGroups = Self.computeEquipmentGroups(
-                    from: exercises,
+                let snapshots = cachedSnapshots.isEmpty
+                    ? ExercisePickerSectionGrouping.makeSnapshots(from: exercises)
+                    : cachedSnapshots
+                let newGroups = Self.computeSnapshotGroups(
+                    from: snapshots,
                     muscleGroup: newGroup,
                     searchText: debouncedSearchText
                 )
                 cachedEquipmentGroups = newGroups
+                cachedAvailableEquipments = Self.computeAvailableEquipmentFilters(from: newGroups)
                 // MY-1272: on muscle-group change, prefer scrolling to the
                 // user's currently-visible equipment section when it
                 // survives the filter. Falls back to the first section of
@@ -358,8 +391,8 @@ struct ExercisePickerView: View {
                 )
                 visibleEquipment = anchor
                 if let anchor {
-                    _ = scrollArbitrator.requestSelection(target: anchor, source: .muscle)
-                    pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
+                    selectionSettleGeneration = scrollArbitratorBox.value.requestSelection(target: anchor, source: .muscle)
+                    pendingScrollWasMoving = true
                 }
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
@@ -369,19 +402,23 @@ struct ExercisePickerView: View {
                 let anchor = newGroups.first?.0
                 visibleEquipment = anchor
                 if let anchor {
-                    _ = scrollArbitrator.requestSelection(target: anchor, source: .filter)
-                    pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
+                    selectionSettleGeneration = scrollArbitratorBox.value.requestSelection(target: anchor, source: .filter)
+                    pendingScrollWasMoving = true
                 }
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
             }
             .onChange(of: debouncedSearchText) { _, newText in
-                let newGroups = Self.computeEquipmentGroups(
-                    from: exercises,
+                let snapshots = cachedSnapshots.isEmpty
+                    ? ExercisePickerSectionGrouping.makeSnapshots(from: exercises)
+                    : cachedSnapshots
+                let newGroups = Self.computeSnapshotGroups(
+                    from: snapshots,
                     muscleGroup: selectedMuscleGroup,
                     searchText: newText
                 )
                 cachedEquipmentGroups = newGroups
+                cachedAvailableEquipments = Self.computeAvailableEquipmentFilters(from: newGroups)
                 // MY-1272: search-driven content changes keep the historical
                 // "reset to first section" behavior — the user changed
                 // intent, so returning to the top is correct (search bar +
@@ -395,8 +432,8 @@ struct ExercisePickerView: View {
                 )
                 visibleEquipment = anchor
                 if let anchor {
-                    _ = scrollArbitrator.requestSelection(target: anchor, source: .filter)
-                    pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
+                    selectionSettleGeneration = scrollArbitratorBox.value.requestSelection(target: anchor, source: .filter)
+                    pendingScrollWasMoving = true
                 }
                 pendingScrollAnchor = anchor
                 scrollResetToken &+= 1
@@ -411,10 +448,26 @@ struct ExercisePickerView: View {
         }
     }
 
-    private func refreshGroups() {
-        cachedEquipmentGroups = Self.computeEquipmentGroups(
-            from: exercises, muscleGroup: selectedMuscleGroup, searchText: debouncedSearchText
+    private func rebuildSnapshotCatalog() {
+        let snapshots = ExercisePickerSectionGrouping.makeSnapshots(from: exercises)
+        var byID: [PersistentIdentifier: Exercise] = [:]
+        byID.reserveCapacity(exercises.count)
+        for exercise in exercises {
+            byID[exercise.persistentModelID] = exercise
+        }
+        cachedSnapshots = snapshots
+        cachedExercisesByID = byID
+        let groups = Self.computeSnapshotGroups(
+            from: snapshots,
+            muscleGroup: selectedMuscleGroup,
+            searchText: debouncedSearchText
         )
+        cachedEquipmentGroups = groups
+        cachedAvailableEquipments = Self.computeAvailableEquipmentFilters(from: groups)
+    }
+
+    private func refreshGroups() {
+        rebuildSnapshotCatalog()
     }
 
     private func handleMuscleTap(_ group: MuscleGroup?) {
@@ -423,12 +476,7 @@ struct ExercisePickerView: View {
             return
         }
 
-        let groups = Self.computeEquipmentGroups(
-            from: exercises,
-            muscleGroup: group,
-            searchText: debouncedSearchText
-        )
-        cachedEquipmentGroups = groups
+        let groups = equipmentGroups
         let anchor = Self.resolveMuscleGroupScrollAnchor(
             previouslyVisible: visibleEquipment,
             in: groups.map(\.0)
@@ -436,8 +484,8 @@ struct ExercisePickerView: View {
         visibleEquipment = anchor
         pendingScrollAnchor = anchor
         if let anchor {
-            _ = scrollArbitrator.requestSelection(target: anchor, source: .muscle)
-            pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
+            selectionSettleGeneration = scrollArbitratorBox.value.requestSelection(target: anchor, source: .muscle)
+            pendingScrollWasMoving = scrollArbitratorBox.value.wasScrollingWhenRequested
         }
         scrollResetToken &+= 1
     }
@@ -453,8 +501,8 @@ struct ExercisePickerView: View {
         visibleEquipment = anchor
         pendingScrollAnchor = anchor
         if let anchor {
-            _ = scrollArbitrator.requestSelection(target: anchor, source: .filter)
-            pendingScrollWasMoving = scrollArbitrator.wasScrollingWhenRequested
+            selectionSettleGeneration = scrollArbitratorBox.value.requestSelection(target: anchor, source: .filter)
+            pendingScrollWasMoving = scrollArbitratorBox.value.wasScrollingWhenRequested
         }
         scrollResetToken &+= 1
     }
@@ -503,9 +551,7 @@ struct ExercisePickerView: View {
     ) -> some View {
         let isSelected = selectedEquipmentFilter == value
         return Button {
-            withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
-                handleEquipmentFilterTap(value)
-            }
+            handleEquipmentFilterTap(value)
         } label: {
             Text(label)
                 .font(.caption.weight(.semibold))
@@ -554,12 +600,10 @@ struct ExercisePickerView: View {
 
     private func muscleButton(_ group: MuscleGroup?) -> some View {
         let selected = selectedMuscleGroup == group
-        let count = selectedExercises.filter { group == nil || $0.muscleGroup == group }.count
+        let count = group.map { selectedCountsByMuscle[$0, default: 0] } ?? selectedIDs.count
         let label = group?.localizedName ?? String(localized: "全部", comment: "All muscle groups")
         return Button {
-            withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
-                handleMuscleTap(group)
-            }
+            handleMuscleTap(group)
         } label: {
             VStack(spacing: 3) {
                 Text(label).font(.caption.weight(selected ? .bold : .medium))
@@ -654,11 +698,16 @@ struct ExercisePickerView: View {
 
     private func deleteCustomExercise(_ exercise: Exercise) {
         guard PickerExerciseEditor.canDelete(exercise) else { return }
+        let id = exercise.persistentModelID
+        let muscle = exercise.muscleGroup
         modelContext.delete(exercise)
         do {
             try modelContext.save()
-            selectedIDs.remove(exercise.persistentModelID)
-            selectedExercises.removeAll { $0.persistentModelID == exercise.persistentModelID }
+            if selectedIDs.remove(id) != nil {
+                selectedExercises.removeAll { $0.persistentModelID == id }
+                let nextCount = (selectedCountsByMuscle[muscle] ?? 1) - 1
+                selectedCountsByMuscle[muscle] = nextCount > 0 ? nextCount : nil
+            }
             refreshGroups()
         } catch {
             modelContext.insert(exercise)
@@ -734,23 +783,44 @@ struct ExercisePickerView: View {
                             .frame(maxWidth: .infinity)
                             .containerRelativeFrame(.vertical)
                     } else {
-                        // NOTE: this outer stack is eager `VStack`, NOT
-                        // `LazyVStack`. Each section already contains a
-                        // `LazyVGrid` (the layer that virtualizes the hundreds
-                        // of exercise cards). Nesting a lazy grid inside a lazy
-                        // stack is a pathological SwiftUI combination: the outer
-                        // lazy container cannot derive a stable intrinsic size
-                        // for the inner lazy grid, so every prefetch-phase
-                        // update (`LazyLayoutViewCache.updatePrefetchPhases`)
-                        // re-expands the inner grid in full, recursing through
-                        // `ModifiedViewList.applyNodes` and pinning the main
-                        // thread at 100% CPU. Section count is bounded (≤18
-                        // equipment kinds), so an eager outer stack is cheap and
-                        // leaves exactly one lazy layer doing the virtualization.
-                        VStack(alignment: .leading, spacing: 20) {
-                            ForEach(groups, id: \.0) { equipment, items in
-                                equipmentSection(equipment: equipment, exercises: items)
+                        // Single-layer virtualization: render all equipment
+                        // sections inside ONE top-level `LazyVGrid` using
+                        // `Section(header:)` rather than an outer `VStack`
+                        // wrapping 17 nested `LazyVGrid` containers or a
+                        // nested `LazyVStack` + `LazyVGrid`.
+                        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 10) {
+                            ForEach(Array(groups.enumerated()), id: \.element.0) { sectionIndex, group in
+                                let equipment = group.0
+                                let items = group.1
+                                Section {
+                                    ForEach(Array(items.enumerated()), id: \.element.id) { itemIndex, snapshot in
+                                        let card = ExerciseCard(
+                                            snapshot: snapshot,
+                                            isSelected: selectedIDs.contains(snapshot.id),
+                                            showsSelectionIndicator: true
+                                        ) {
+                                            handleCardTap(snapshot)
+                                        }
+                                        .equatable()
+                                        .contextMenu {
+                                            if let exercise = cachedExercisesByID[snapshot.id] {
+                                                exerciseContextMenu(exercise)
+                                            }
+                                        }
+                                        if itemIndex < Self.gridColumnCount {
+                                            card.id(equipment)
+                                        } else {
+                                            card
+                                        }
+                                    }
+                                } header: {
+                                    equipmentSectionHeader(
+                                        equipment: equipment,
+                                        count: items.count,
+                                        isFirst: sectionIndex == 0
+                                    )
                                     .id(equipment)
+                                }
                             }
                         }
                         .padding(.vertical, Self.cardGridVerticalInset)
@@ -799,21 +869,22 @@ struct ExercisePickerView: View {
                     idType: ExerciseSection.self,
                     threshold: Self.visibilityThreshold
                 ) { visibleIds in
+                    let arbitrator = scrollArbitratorBox.value
                     Self.applyVisibleIds(
                         visibleIds,
                         in: equipments,
                         current: visibleEquipment,
-                        preferred: scrollArbitrator.programmaticTarget ?? scrollArbitrator.lastSelectedTarget,
+                        preferred: arbitrator.programmaticTarget ?? arbitrator.lastSelectedTarget,
                         isDragging: draggedEquipment != nil,
                         using: { equipment in
                             guard let equipment else { return }
-                            guard scrollArbitrator.acceptsVisibility(equipment) else { return }
+                            guard scrollArbitratorBox.value.acceptsVisibility(equipment) else { return }
                             applyVisibleEquipment(equipment)
                         }
                     )
                 }
                 .onScrollPhaseChange { _, newPhase in
-                    scrollArbitrator.updateScrollPhase(
+                    scrollArbitratorBox.value.updateScrollPhase(
                         newPhase,
                         isScrubbing: draggedEquipment != nil
                     )
@@ -840,13 +911,13 @@ struct ExercisePickerView: View {
                     let replacement = newEquipments.first
                     visibleEquipment = replacement
                     if let replacement {
-                        _ = scrollArbitrator.requestSelection(target: replacement, source: .filter)
+                        selectionSettleGeneration = scrollArbitratorBox.value.requestSelection(target: replacement, source: .filter)
                     }
                 } else if visibleEquipment == nil {
                     let replacement = newEquipments.first
                     visibleEquipment = replacement
                     if let replacement {
-                        _ = scrollArbitrator.requestSelection(target: replacement, source: .filter)
+                        selectionSettleGeneration = scrollArbitratorBox.value.requestSelection(target: replacement, source: .filter)
                     }
                 }
             }
@@ -860,16 +931,10 @@ struct ExercisePickerView: View {
                 .onChange(of: scrollResetToken) { _, _ in
                     let target = pendingScrollAnchor ?? groups.first?.0
                     guard let anchor = target else { return }
-                    if pendingScrollWasMoving || reduceMotion {
-                        var transaction = Transaction()
-                        transaction.disablesAnimations = true
-                        withTransaction(transaction) {
-                            gridProxy.scrollTo(anchor, anchor: .top)
-                        }
-                    } else {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            gridProxy.scrollTo(anchor, anchor: .top)
-                        }
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        gridProxy.scrollTo(anchor, anchor: .top)
                     }
                 }
             }
@@ -884,8 +949,8 @@ struct ExercisePickerView: View {
             activeEquipment: draggedEquipment ?? visibleEquipment,
             onSelect: { equipment, animated in
                 let source: ExercisePickerSelectionSource = animated ? .indexTap : .indexScrub
-                _ = scrollArbitrator.requestSelection(target: equipment, source: source)
-                let wasMoving = scrollArbitrator.wasScrollingWhenRequested
+                selectionSettleGeneration = scrollArbitratorBox.value.requestSelection(target: equipment, source: source)
+                let wasMoving = scrollArbitratorBox.value.wasScrollingWhenRequested
                 if wasMoving || reduceMotion || !animated {
                     var transaction = Transaction()
                     transaction.disablesAnimations = true
@@ -929,7 +994,7 @@ struct ExercisePickerView: View {
                 let finalTarget = draggedEquipment
                 indexHUD = draggedEquipment
                 if let finalTarget {
-                    _ = scrollArbitrator.rearmSelection(
+                    selectionSettleGeneration = scrollArbitratorBox.value.rearmSelection(
                         target: finalTarget,
                         source: .indexScrub
                     )
@@ -980,16 +1045,12 @@ struct ExercisePickerView: View {
     @MainActor
     private func applyVisibleEquipment(_ equipment: ExerciseSection?) {
         guard visibleEquipment != equipment else { return }
-        let hadVisibleEquipment = visibleEquipment != nil
         emitSectionJumpTelemetry(
             from: visibleEquipment,
             to: equipment,
             source: Self.sectionJumpSourceScroll
         )
         visibleEquipment = equipment
-        if hadVisibleEquipment {
-            indexHUD = equipment
-        }
     }
 
     /// MY-1338: canonical `TelemetryIdentifier` values for the
@@ -1173,36 +1234,35 @@ struct ExercisePickerView: View {
         (ExerciseSection.allCases.firstIndex(of: section) ?? 0) % 5
     }
 
-    private func equipmentSection(equipment: ExerciseSection, exercises: [Exercise]) -> some View {
+    private func equipmentSectionHeader(
+        equipment: ExerciseSection,
+        count: Int,
+        isFirst: Bool
+    ) -> some View {
         let color = categoryColor(sectionPaletteIndex(for: equipment), theme: theme)
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: equipment.sfSymbol)
-                    .font(TypeScale.meta.weight(.bold))
-                    .foregroundStyle(color)
-                    .frame(width: 16, alignment: .center)
-                Text(equipment.localizedName.uppercased())
-                    .font(TypeScale.meta)
-                    .fontWeight(.bold)
-                    .foregroundStyle(Color.secondary)
-                Text("\(exercises.count)")
-                    .font(TypeScale.meta.monospacedDigit())
-                    .foregroundStyle(Color.secondary)
-            }
-
-            LazyVGrid(columns: gridColumns, spacing: 10) {
-                ForEach(exercises) { exercise in
-                    ExerciseCard(
-                        exercise: exercise,
-                        isSelected: selectedIDs.contains(exercise.persistentModelID),
-                        showsSelectionIndicator: true
-                    ) {
-                        handleCardTap(exercise)
-                    }
-                    .contextMenu { exerciseContextMenu(exercise) }
-                }
-            }
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: equipment.sfSymbol)
+                .font(TypeScale.meta.weight(.bold))
+                .foregroundStyle(color)
+                .frame(width: 16, alignment: .center)
+            Text(equipment.localizedName.uppercased())
+                .font(TypeScale.meta)
+                .fontWeight(.bold)
+                .foregroundStyle(Color.secondary)
+            Text("\(count)")
+                .font(TypeScale.meta.monospacedDigit())
+                .foregroundStyle(Color.secondary)
+            Spacer(minLength: 0)
         }
+        .padding(.top, isFirst ? 0 : 10)
+        .padding(.bottom, 2)
+    }
+
+    private func handleCardTap(_ snapshot: ExercisePickerCardSnapshot) {
+        guard let exercise = cachedExercisesByID[snapshot.id]
+            ?? exercises.first(where: { $0.persistentModelID == snapshot.id })
+        else { return }
+        handleCardTap(exercise)
     }
 
     private func handleCardTap(_ exercise: Exercise) {
@@ -1217,12 +1277,16 @@ struct ExercisePickerView: View {
 
     private func toggleSelection(_ exercise: Exercise) {
         let id = exercise.persistentModelID
+        let muscle = exercise.muscleGroup
         if selectedIDs.contains(id) {
             selectedIDs.remove(id)
             selectedExercises.removeAll { $0.persistentModelID == id }
+            let nextCount = (selectedCountsByMuscle[muscle] ?? 1) - 1
+            selectedCountsByMuscle[muscle] = nextCount > 0 ? nextCount : nil
         } else {
             selectedIDs.insert(id)
             selectedExercises.append(exercise)
+            selectedCountsByMuscle[muscle, default: 0] += 1
         }
     }
 }
@@ -1270,23 +1334,29 @@ private struct FloatingPanelAttachment<Panel: View>: ViewModifier {
 
 // MARK: - Exercise Card
 
-private struct ExerciseCard: View {
+private struct ExerciseCard: View, Equatable {
     @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    let exercise: Exercise
+    let snapshot: ExercisePickerCardSnapshot
     let isSelected: Bool
     let showsSelectionIndicator: Bool
     let onTap: () -> Void
 
+    nonisolated static func == (lhs: ExerciseCard, rhs: ExerciseCard) -> Bool {
+        lhs.snapshot == rhs.snapshot
+            && lhs.isSelected == rhs.isSelected
+            && lhs.showsSelectionIndicator == rhs.showsSelectionIndicator
+    }
+
     private var equipmentColor: Color {
-        categoryColor(categoryColorIndex(for: exercise.equipment), theme: theme)
+        categoryColor(categoryColorIndex(for: snapshot.equipment), theme: theme)
     }
 
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Image(systemName: exercise.equipment.sfSymbol)
+                    Image(systemName: snapshot.equipment.sfSymbol)
                         .font(TypeScale.body.weight(.semibold))
                         .foregroundStyle(equipmentColor)
                         .frame(width: 34, height: 34)
@@ -1306,7 +1376,7 @@ private struct ExerciseCard: View {
 
                 mediaPreview
 
-                Text(exercise.localizedName)
+                Text(snapshot.localizedName)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.primary)
                     .lineLimit(2, reservesSpace: true)
@@ -1316,11 +1386,11 @@ private struct ExerciseCard: View {
                     .layoutPriority(1)
 
                 HStack(spacing: 4) {
-                    Text(exercise.muscleGroup.localizedName)
+                    Text(snapshot.muscleLocalizedName)
                         .lineLimit(1)
                     Text("·")
                         .accessibilityHidden(true)
-                    Text(exercise.equipment.localizedName)
+                    Text(snapshot.equipmentLocalizedName)
                         .lineLimit(1)
                 }
                 .font(.caption)
@@ -1354,7 +1424,7 @@ private struct ExerciseCard: View {
     // ViewBuilder returns nothing — no placeholder frame, no image fetch.
     @ViewBuilder
     private var mediaPreview: some View {
-        if exercise.mediaKey != nil {
+        if snapshot.mediaKey != nil {
             EmptyView()
         }
     }
@@ -1447,14 +1517,6 @@ private struct EquipmentIndexBar: View {
         UISelectionFeedbackGenerator().selectionChanged()
         #endif
     }
-}
-
-private struct ExercisePickerRevision: Equatable {
-    let id: PersistentIdentifier
-    let nameEn: String
-    let nameZh: String
-    let muscle: MuscleGroup
-    let equipment: Equipment
 }
 
 private enum PickerSheet: Identifiable {
