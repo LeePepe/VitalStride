@@ -1,4 +1,5 @@
 import Foundation
+import HealthKitService
 import TelemetryKit
 import VitalModels
 
@@ -28,6 +29,19 @@ enum TelemetryHelpers {
         case .resume: "resume"
         }
     }
+
+    #if !os(macOS)
+    /// Canonical ASCII identifier for a `WatchConnectionState` transition.
+    static func watchConnectionStateIdentifier(_ state: WatchConnectionState) -> TelemetryIdentifier {
+        switch state {
+        case .reachable: "reachable"
+        case .unreachable: "unreachable"
+        case .notPaired: "not_paired"
+        case .notInstalled: "not_installed"
+        case .unsupported: "unsupported"
+        }
+    }
+    #endif
 
     /// Convert an `Exercise`'s canonical English name into a telemetry
     /// identifier. Falls back to `"unknown"` when the English name cannot

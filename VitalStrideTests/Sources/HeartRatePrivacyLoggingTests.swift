@@ -21,6 +21,7 @@ struct HeartRatePrivacyLoggingTests {
         "WorkoutHeartRateStats.swift",
         "WorkoutDetailView.swift",
         "HealthKitWorkoutDetailView.swift",
+        "ActiveWorkoutView.swift",
     ]
 
     /// Logging call prefixes we grep for. Each hit is inspected as one

@@ -414,8 +414,8 @@ public final class DefaultWatchConnectivitySessionProvider: WatchConnectivitySes
     //     concurrent code paths (we always talk to it through the shim's
     //     own lock-guarded handler slot, from within Apple's serial queue).
     // These invariants make it safe to share across concurrency domains.
-    nonisolated(unsafe) private static let sharedShim = DelegateShim()
-    nonisolated(unsafe) private let shim: DelegateShim
+    private static let sharedShim = DelegateShim()
+    private let shim: DelegateShim
 
     public init() {
         self.shim = Self.sharedShim

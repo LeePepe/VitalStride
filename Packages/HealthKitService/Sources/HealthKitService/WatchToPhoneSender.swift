@@ -126,10 +126,10 @@ public final class DefaultWatchToPhoneSender: WatchToPhoneSending {
     //     serial queue;
     //   * never mutated by us after init.
     // These invariants make it safe to share across concurrency domains.
-    nonisolated(unsafe) private static let sharedShim = WCDelegateShim(
+    private static let sharedShim = WCDelegateShim(
         logger: Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender.Shim")
     )
-    nonisolated(unsafe) private let shim: WCDelegateShim
+    private let shim: WCDelegateShim
 
     public init(inboundReceiver: (any WatchInboundReceiving)? = nil) {
         self.logger = Logger(subsystem: "com.vitalstride", category: "WatchToPhoneSender")

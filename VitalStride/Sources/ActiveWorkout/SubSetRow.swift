@@ -21,6 +21,7 @@ struct SubSetRow: View {
     let exercise: Exercise?
     let recentWeightKg: Double?
     let onToggleCompleted: (_ wasCompleted: Bool) -> Void
+    let onValueChanged: () -> Void
     let onDelete: () -> Void
     let onAddSubSet: (_ type: SetType) -> Void
 
@@ -40,6 +41,7 @@ struct SubSetRow: View {
         exercise: Exercise?,
         recentWeightKg: Double?,
         onToggleCompleted: @escaping (_ wasCompleted: Bool) -> Void,
+        onValueChanged: @escaping () -> Void = {},
         onDelete: @escaping () -> Void,
         onAddSubSet: @escaping (_ type: SetType) -> Void = { _ in }
     ) {
@@ -50,6 +52,7 @@ struct SubSetRow: View {
         self.exercise = exercise
         self.recentWeightKg = recentWeightKg
         self.onToggleCompleted = onToggleCompleted
+        self.onValueChanged = onValueChanged
         self.onDelete = onDelete
         self.onAddSubSet = onAddSubSet
     }
@@ -101,10 +104,22 @@ struct SubSetRow: View {
             refreshInputText()
         }
         .onChange(of: weightUnit) { _, _ in refreshInputText() }
-        .onChange(of: exerciseSet.weight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
-        .onChange(of: exerciseSet.weightRight) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
-        .onChange(of: exerciseSet.reps) { _, _ in refreshInputText(preservingFocusedField: focusedField) }
-        .onChange(of: exerciseSet.isUnilateral) { _, _ in refreshInputText() }
+        .onChange(of: exerciseSet.weight) { _, _ in
+            refreshInputText(preservingFocusedField: focusedField)
+            onValueChanged()
+        }
+        .onChange(of: exerciseSet.weightRight) { _, _ in
+            refreshInputText(preservingFocusedField: focusedField)
+            onValueChanged()
+        }
+        .onChange(of: exerciseSet.reps) { _, _ in
+            refreshInputText(preservingFocusedField: focusedField)
+            onValueChanged()
+        }
+        .onChange(of: exerciseSet.isUnilateral) { _, _ in
+            refreshInputText()
+            onValueChanged()
+        }
         .animation(
             reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.28, dampingFraction: 0.85),
             value: exerciseSet.isCompleted
