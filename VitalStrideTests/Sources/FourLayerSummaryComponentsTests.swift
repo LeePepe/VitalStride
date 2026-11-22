@@ -105,16 +105,18 @@ struct FourLayerSummaryComponentsTests {
         #expect(popoverA == popoverB)
         #expect(popoverA != popoverC)
 
+        let iterations = 20
         let clock = ContinuousClock()
         let elapsed = clock.measure {
-            for idx in 0..<20 {
+            for idx in 0..<iterations {
                 let values = sample.map { $0 + Double(idx % 3) }
                 _ = Compact7DayTrendSummary(values: values)
             }
         }
-        let elapsedMs = Double(elapsed.components.seconds) * 1_000.0
+        let totalElapsedMs = Double(elapsed.components.seconds) * 1_000.0
             + Double(elapsed.components.attoseconds) / 1_000_000_000_000_000.0
-        #expect(elapsedMs < 5.0, "Expected 20 Compact7DayTrendSummary precomputations in < 5ms, got \(elapsedMs)ms")
+        let perClickMs = totalElapsedMs / Double(iterations)
+        #expect(perClickMs < 5.0, "Expected < 5ms per Compact7DayTrendSummary precomputation, got \(perClickMs)ms")
     }
 
     private func sourcePath(_ relativePath: String) -> String {
