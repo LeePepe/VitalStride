@@ -118,7 +118,7 @@ struct AcknowledgementsView: View {
             }
         }
         .navigationTitle(String(localized: "致谢", comment: "Nav title"))
-        #if !os(macOS)
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
     }

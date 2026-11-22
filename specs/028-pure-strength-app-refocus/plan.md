@@ -13,7 +13,6 @@
 ## Owned Paths
 
 - `docs/adr/0024-refocus-pure-strength-logger-2tab.md`
-- `docs/adr/README.md`
 - `specs/028-pure-strength-app-refocus/spec.md`
 - `specs/028-pure-strength-app-refocus/plan.md`
 - `VitalStride/Sources/ContentView.swift`
