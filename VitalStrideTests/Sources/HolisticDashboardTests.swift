@@ -125,15 +125,31 @@ struct HolisticDashboardTests {
         #expect(!L4Copy.northStar.contains("holistic_"))
         #expect(!L4Copy.percent(0.86).contains("…"))
         #expect(source.contains("onRetry"))
-        #expect(source.contains("AIProvenanceBadge(provider: provider)"))
+        #expect(source.contains("FourLayerSummaryDashboard("))
+        #expect(source.contains("snapshot: state.snapshot"))
         #expect(source.contains("fixedSize(horizontal: false, vertical: true)"))
         #expect(source.components(separatedBy: "Button(").count <= 2)
+
+        let summarySource = try String(contentsOfFile: fourLayerSummarySourcePath(), encoding: .utf8)
+        #expect(summarySource.contains("L4NorthStarDirectiveCard"))
+        #expect(summarySource.contains("L3ReadinessPeriodizationCard"))
+        #expect(summarySource.contains("L2CrossDomainCouplingSection"))
+        #expect(summarySource.contains("L1AtomicDomainSummarySection"))
+        #expect(summarySource.contains("PlatformHealthDetailActionButton"))
+        #expect(summarySource.contains("Compact7DayTrendPopover"))
+        #expect(!summarySource.contains("displayLimit = 200"))
     }
 
     private func holisticDashboardSourcePath() -> String {
         let root = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         return root.appendingPathComponent("VitalStride/Sources/Overview/HolisticDashboardSection.swift").path
+    }
+
+    private func fourLayerSummarySourcePath() -> String {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        return root.appendingPathComponent("VitalStride/Sources/FourLayerSummaryComponents.swift").path
     }
 }
 

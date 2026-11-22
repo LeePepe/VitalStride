@@ -585,29 +585,10 @@ struct SleepDetailView: View {
                 }
 
                 AIDataAnalysisSection(sampleType: .sleepAnalysis)
-
-                Section {
-                    ForEach(nights.reversed()) { night in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(night.date, format: .dateTime.month().day().weekday())
-                                Spacer()
-                                Text(formatDuration(night.totalSleep))
-                                    .foregroundStyle(theme.secondaryForeground)
-                            }
-                            HStack(spacing: 8) {
-                                stageLabel(String(localized: "深睡", comment: "Deep"), duration: night.deep, color: SleepStageInfo.deep.color(theme: theme))
-                                stageLabel(String(localized: "浅睡", comment: "Core"), duration: night.core, color: SleepStageInfo.core.color(theme: theme))
-                                stageLabel(String(localized: "REM", comment: "REM"), duration: night.rem, color: SleepStageInfo.rem.color(theme: theme))
-                            }
-                            .font(.caption2)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(nightAccessibilityLabel(for: night))
-                    }
-                } header: {
-                    Text("按夜明细", comment: "Nightly breakdown header")
-                }
+                PlatformHealthDetailActionButton(
+                    title: String(localized: "four_layer_health_detail", defaultValue: "View details in Apple Health ↗", comment: "Open sleep details in Apple Health"),
+                    trend: nights.map(\.totalSleep)
+                )
             }
         }
         #if os(iOS)

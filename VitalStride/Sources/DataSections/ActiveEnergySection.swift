@@ -361,11 +361,17 @@ struct ActiveEnergyDetailView: View {
                 .listRowBackground(Color.clear)
             } else if let errorMessage {
                 Section {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(theme.secondaryForeground)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 200)
+                    VStack(spacing: 8) {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundStyle(theme.secondaryForeground)
+                        Button(String(localized: "holistic_retry_action", defaultValue: "Retry", comment: "Retry loading active energy")) {
+                            Task { await loadData() }
+                        }
+                        .font(.caption.weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
                 }
                 .listRowBackground(Color.clear)
             } else {
@@ -394,23 +400,10 @@ struct ActiveEnergyDetailView: View {
                 }
 
                 AIDataAnalysisSection(sampleType: .activeEnergyBurned)
-
-                Section {
-                    ForEach(dailyData.reversed()) { item in
-                        HStack {
-                            Text(item.date, format: .dateTime.month().day().weekday())
-                            Spacer()
-                            Text("\(displayValue(item.totalEnergy).formatted(.number)) \(energyUnit.abbreviation)")
-                                .foregroundStyle(theme.secondaryForeground)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(
-                            "\(item.date.formatted(.dateTime.month().day())) \(displayValue(item.totalEnergy).formatted(.number)) \(energyUnit.accessibilityName)"
-                        )
-                    }
-                } header: {
-                    Text("按日明细", comment: "Daily breakdown section header")
-                }
+                PlatformHealthDetailActionButton(
+                    title: String(localized: "four_layer_health_detail", defaultValue: "View details in Apple Health ↗", comment: "Open activity details in Apple Health"),
+                    trend: dailyData.map(\.totalEnergy)
+                )
             }
         }
         #if os(iOS)

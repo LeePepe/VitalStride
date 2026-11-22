@@ -1,6 +1,7 @@
 // swiftlint:disable no_hardcoded_chinese
 // Rationale: All CJK literals in this file are wrapped in String(localized:) for i18n;
 // the regex-based rule can't distinguish that from a raw literal (MY-1269).
+import AIService
 import DesignKit
 import SwiftUI
 
@@ -39,12 +40,50 @@ enum SidebarSection: String, CaseIterable, Identifiable {
     @ViewBuilder
     var detailView: some View {
         switch self {
-        case .overview: MacOverviewPlaceholder()
+        case .overview: MacHolisticOverview()
         case .workout: MacWorkoutPlaceholder()
         case .data: DataView()
         case .ai: AIView()
         case .settings: MacSettingsPlaceholder()
         }
+    }
+}
+
+private struct MacHolisticOverview: View {
+    var body: some View {
+        ScrollView {
+            FourLayerSummaryDashboard(report: Self.previewReport())
+                .padding(Space.lg)
+                .frame(maxWidth: Space.contentMaxWidth, alignment: .leading)
+        }
+        .navigationTitle(String(localized: "概览", comment: "macOS overview title"))
+    }
+
+    private static func previewReport() -> AIService.HolisticFourLayerReport {
+        AIService.HolisticFourLayerReport(
+            l1: [
+                .init(domain: .heart, metric: "hrvCurrent", value: 68, message: "Observed aggregate"),
+                .init(domain: .heart, metric: "hrv7d", value: 65, message: "Observed aggregate"),
+                .init(domain: .sleep, metric: "sleepEfficiency", value: 0.92, message: "Observed aggregate"),
+                .init(domain: .trainingLoad, metric: "acwr", value: 0.9, message: "Observed aggregate"),
+                .init(domain: .aerobic, metric: "vo2Max", value: 51.4, message: "Observed aggregate"),
+                .init(domain: .neat, metric: "nonWorkoutSteps", value: 7680, message: "Observed aggregate")
+            ],
+            l2: [
+                .init(primaryDomain: .sleep, secondaryDomain: .trainingLoad, relationship: "sleepTrainingCoupling", message: String(localized: "mac_overview_sleep_load_message", defaultValue: "Sleep and training load remain compatible.", comment: "macOS preview coupling message"), severity: .normal),
+                .init(primaryDomain: .neat, secondaryDomain: .heart, relationship: "stepsBodyCoupling", message: String(localized: "mac_overview_steps_body_message", defaultValue: "Movement supports active recovery.", comment: "macOS preview coupling message"), severity: .normal)
+            ],
+            l3: .init(readinessScore: 82, autonomicScore: 84, sleepRestorationScore: 79, fatigueBalanceScore: 83, mesocyclePhase: .intensification, recommendedIntensityCap: 0.85),
+            l4: .init(
+                northStarScore: 86,
+                directive: String(localized: "mac_overview_directive", defaultValue: "Recovery and movement support controlled training today.", comment: "macOS preview directive"),
+                prioritizedActions: [
+                    String(localized: "mac_overview_action_controlled", defaultValue: "Keep the planned session controlled.", comment: "macOS preview action"),
+                    String(localized: "mac_overview_action_sleep", defaultValue: "Protect a consistent sleep opportunity.", comment: "macOS preview action"),
+                    String(localized: "mac_overview_action_movement", defaultValue: "Use easy movement breaks.", comment: "macOS preview action")
+                ]
+            )
+        )
     }
 }
 

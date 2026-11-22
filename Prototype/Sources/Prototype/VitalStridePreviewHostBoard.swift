@@ -260,27 +260,19 @@ public enum VitalStridePreviewPageTab: Int, CaseIterable, Identifiable, Sendable
 
     public var goalSlug: String {
         switch self {
-        case .page1HolisticDashboard:
-            return "vs-ui-l4-holistic-dashboard"
-        case .page2HeartSleepCoupling:
-            return "vs-ui-l1-heart-sleep-detail"
-        case .page3WorkoutLoadProgression:
-            return "vs-ui-l2-workout-load-progression"
-        case .page4StepsBodySettings:
-            return "vs-ui-l1-steps-body-settings"
+        case .page1HolisticDashboard: return "vs-l1-atomic-domain-cards"
+        case .page2HeartSleepCoupling: return "vs-l2-cross-domain-coupling-cards"
+        case .page3WorkoutLoadProgression: return "vs-l3-readiness-periodization-cards"
+        case .page4StepsBodySettings: return "vs-l4-north-star-directive-cards"
         }
     }
 
     public var tabTitle: String {
         switch self {
-        case .page1HolisticDashboard:
-            return "W2-2 · L4 北极星准备度"
-        case .page2HeartSleepCoupling:
-            return "W2-3 · 心率×睡眠耦合"
-        case .page3WorkoutLoadProgression:
-            return "W2-4 · 训练负荷周期"
-        case .page4StepsBodySettings:
-            return "W2-5 · 步数 NEAT×恢复+AI 配置"
+        case .page1HolisticDashboard: return "L1 · 原子基元卡 (5域10指标)"
+        case .page2HeartSleepCoupling: return "L2 · 跨域耦合卡 (睡眠×负荷 / NEAT×恢复)"
+        case .page3WorkoutLoadProgression: return "L3 · 准备度与周期卡 (三支柱+中周期+上限%)"
+        case .page4StepsBodySettings: return "L4 · 北极星指令卡 (总分+核心结论+Top3行动)"
         }
     }
 
@@ -308,14 +300,10 @@ public enum VitalStridePreviewPageTab: Int, CaseIterable, Identifiable, Sendable
 
     public var snapshotFilename: String {
         switch self {
-        case .page1HolisticDashboard:
-            return "page1-holistic-dashboard-10up.png"
-        case .page2HeartSleepCoupling:
-            return "page2-heart-sleep-coupling-10up.png"
-        case .page3WorkoutLoadProgression:
-            return "page3-workout-load-progression-10up.png"
-        case .page4StepsBodySettings:
-            return "page4-steps-body-settings-10up.png"
+        case .page1HolisticDashboard: return "layer1-atomic-domain-cards-10up.png"
+        case .page2HeartSleepCoupling: return "layer2-cross-domain-coupling-cards-10up.png"
+        case .page3WorkoutLoadProgression: return "layer3-readiness-periodization-cards-10up.png"
+        case .page4StepsBodySettings: return "layer4-north-star-directive-cards-10up.png"
         }
     }
 
@@ -337,72 +325,21 @@ public enum VitalStridePreviewPageTab: Int, CaseIterable, Identifiable, Sendable
     }
 
     public var descriptors: [PreviewVariantDescriptor] {
-        let rows: [(String, String)]
+        let titles: [(String, String)]
         switch self {
         case .page1HolisticDashboard:
-            rows = [
-                ("Dual-Ring Horizon Instrument", "L4 North Star 与 L3 今日训练准备度双环同台，直读自主神经、睡眠与疲劳三支柱。"),
-                ("Editorial Executive Briefing", "零圆环高对比度社论简报，64pt 巨字北极星评分搭配核心行动处方与耦合溯源。"),
-                ("Biometric Bento Matrix", "双栏不对称 Bento 矩阵，并置北极星趋势折线与准备度半圆弧仪表及下钻入口。"),
-                ("Four-Layer Causal Cascade Waterfall", "L4 → L3 → L2 → L1 四层因果瀑布流，清晰展现底层生理信号如何决定训练门控。"),
-                ("Readiness Gate Traffic-Light Command Deck", "红绿灯门控指挥舱，突出中周期阶段胶囊与推荐强度上限水平刻度条。"),
-                ("Mesocycle Timeline & Horizon Ribbon", "四阶段中周期时间轴彩带（Accumulation → Deload），聚焦长期适应轨迹。"),
-                ("Action-First Prescriptive Coach", "行动处方置顶卡片，显式标注四模可插拔 AI 引擎来源徽章与核心执行清单。"),
-                ("Coupling Matrix & Tri-Axis Radar Strip", "跨领域耦合矩阵，将行动指令直接绑定至睡眠×负荷与 NEAT×心率耦合双通道。"),
-                ("Ultra-Clean Minimalist Scannable Stack", "极简留白居中焦点舞台，单圆弧北极星仪表搭配三支柱进度条与精炼指令。"),
-                ("High-Density Pro Telemetry Console", "高密度运动科学遥测控制台，四维核心指标顶栏配合紧凑双域耦合处方。"),
-            ]
+            titles = (1...10).map { (String(format: "L1-V%02d · Atomic domain candidate", $0), "Five domain cards with ten curated aggregate metrics and a qualitative verdict.") }
         case .page2HeartSleepCoupling:
-            rows = [
-                ("Autonomic Corridor & Hypnogram Bridge", "HRV 7d/60d 正常走廊色带与整夜睡眠分期结构同屏桥接，联动今日强度上限。"),
-                ("Morning CNS Readiness & Prescription Manifesto", "晨间中枢神经准备度宣言卡，突出 HRV/RHR 偏离度与睡眠债对训练强度的门控。"),
-                ("Biometric Bento Quad-Grid", "四宫格生理 Bento 矩阵，紧凑收纳 HRV 走廊、RHR、HRR 恢复率与深睡/REM 占比。"),
-                ("Nocturnal-to-Morning Chronological Timeline", "昨夜睡眠修复 → 晨间自主神经读数 → 今日训练窗口三段式时序叙事流。"),
-                ("Dual-Dial Autonomic × Sleep Balance Scale", "自主神经评分与睡眠修复评分双盘天平，搭配 5 区间心率分布与睡眠债进度。"),
-                ("Corridor Band & Hypnogram Chart Studio", "7 日 HRV 趋势折线与 7 夜睡眠分期柱状图工作室，强化多日连续对比。"),
-                ("Prescription-First Coaching Clipboard", "教练处方夹板置顶，内建 CNS 受控与 Zone 2 恢复护栏徽章及双支柱证据卡。"),
-                ("Cross-Domain Coupling Matrix", "2×2 自主神经 × 睡眠结构耦合矩阵，底部贯穿完整 L2 耦合解释与心率区间条。"),
-                ("Calm Recovery Sanctuary", "静谧恢复圣殿布局，中央环形强度上限仪表配精炼 HRV / RHR / HRR 三联指标。"),
-                ("Pro Sports-Science Multi-Channel Console", "专业运动科学多通道遥测台，四格核心读数矩阵叠加完整心率区间与睡眠债。"),
-            ]
+            titles = (1...10).map { (String(format: "L2-V%02d · Cross-domain coupling candidate", $0), "Sleep × training load and Daily NEAT × body recovery relationship cards.") }
         case .page3WorkoutLoadProgression:
-            rows = [
-                ("Mesocycle Command & PMC Horizon", "L3 周期阶段轨道 + CTL/ATL/TSB 三联指标与 14 日 PMC 双曲线 + Zone 1–5 分布。"),
-                ("Editorial Sports-Physiology Ledger", "运动生理学账本排版，以 TSB 训练状态与 85% 强度上限为双锚点展开临床负荷明细。"),
-                ("Performance Bento Quad-Grid", "双列性能 Bento 网格，整合 PMC 轨迹、ACWR 甜区胶囊、心率区间与 EF/VO2max。"),
-                ("4-Block Mesocycle Progression Stepper", "积累 → 强化 → 变现 → 减载四阶段纵向演进阶梯，嵌入实时 ACWR 与 TSB 读数。"),
-                ("Dual-Rotor ACWR × Readiness Cockpit", "准备度与疲劳平衡双转子驾驶舱，联动 ACWR、TRIMP、TSS 与 14 日负荷曲线。"),
-                ("Multi-Curve Chart Studio", "多曲线图表工作室置顶 PMC 轨迹，串联心率五区间光谱与有氧效率 EF / Pa:Hr。"),
-                ("Coach's Periodization Clipboard", "周期化教练处方板，置顶 CNS 与 Zone 2 护栏，分列力量/心肺/摄氧量三大证据柱。"),
-                ("Hybrid Strength × Cardio Load Matrix", "有氧 TRIMP × 力量 TSS × 体能 CTL × 状态 TSB 四象限混合负荷矩阵。"),
-                ("Minimalist Form & Adaptation Focus", "极简适应焦点舞台，112pt 环形强度上限仪表统领准备度、ACWR 与有氧效率。"),
-                ("Performance Telemetry Lab", "六宫格高密度运动表现遥测实验室（CTL/ATL/ACWR/TSB/EF/VO2max）配周期处方。"),
-            ]
+            titles = (1...10).map { (String(format: "L3-V%02d · Readiness periodization candidate", $0), "Readiness, three pillar subscores, mesocycle phase, and intensity cap.") }
         case .page4StepsBodySettings:
-            rows = [
-                ("Coupled Recovery Command & 4-Mode AI Deck", "纯 NEAT 步数 × 恢复准备度英雄卡，串联 24h 节律柱、7d 体重均线与四模 AI 路由舱。"),
-                ("Editorial Metabolic & AI Routing Ledger", "代谢与路由社论账本，7,680 纯 NEAT 步数巨字领衔，紧凑罗列能量、节律、体重与 AI 状态。"),
-                ("Asymmetric Biometric & AI Bento Grid", "双栏不对称 Bento 矩阵，分舱呈现耦合英雄卡、步数拆分、24h 节律、体重均线与 AI 路由。"),
-                ("Circadian 24-Hour NEAT Ribbon & Fallback Chain Railway", "Input → Coupling → Trend → Routing 四级轨道时间流，直观映射生理输入到 AI 降级链。"),
-                ("Dual-Rotor NEAT Consistency × Recovery Readiness Cockpit", "79% 节律一致性与 84 准备度双环驾驶舱，配合能量负担与 Keychain 隔离四模引擎。"),
-                ("Multi-Canvas Telemetry & AI Inspector Studio", "多画布遥测与 AI 检视器工作室，突出 24h NEAT 波形、20% 能量负担与体脂/瘦体重包络。"),
-                ("Recovery Physiologist's Clipboard", "恢复生理学家夹板，置顶 84 准备度与 20% 负担比，三支柱展开活跃小时、体重趋势与 AI。"),
-                ("2×2 Physiological × AI Architecture Matrix", "NEAT / Energy / Body / AI 四向量 2×2 矩阵，叠加 24h 节律与 7d 体重双轨画布。"),
-                ("Minimalist Active-Recovery Sanctuary", "极简主动恢复圣殿，中央节律一致性环配三联核心指标与无热量推断克制声明。"),
-                ("Biometric Routing Workbench", "六维生物特征工作台（纯 NEAT/节律/能量/体重/准备度/负担）配完整四模 AI 凭证配置摘要。"),
-            ]
+            titles = (1...10).map { (String(format: "L4-V%02d · North Star directive candidate", $0), "North Star score, executive headline, provenance, and top three actions.") }
         }
-
-        let pageIndex = rawValue
-        return rows.enumerated().map { index, row in
+        return titles.enumerated().map { index, row in
             let code = String(format: "v%02d", index + 1)
-            let badge = String(format: "P%d-V%02d", pageIndex, index + 1)
-            return PreviewVariantDescriptor(
-                id: code,
-                badgeCode: badge,
-                title: row.0,
-                summary: row.1
-            )
+            let badge = String(format: "L%d-V%02d", rawValue, index + 1)
+            return PreviewVariantDescriptor(id: code, badgeCode: badge, title: row.0, summary: row.1)
         }
     }
 }
@@ -936,64 +873,14 @@ public struct IsolatedCandidateViewportHost: View, Equatable {
     @ViewBuilder
     private var candidateBody: some View {
         let variantNumber = Int(context.descriptor.id.dropFirst()) ?? 1
-        switch context.page {
-        case .page1HolisticDashboard:
-            let data = HolisticDashboardPreviewData(state: context.dataState.holisticState)
-            switch variantNumber {
-            case 1: HolisticDashboardV01View(data: data)
-            case 2: HolisticDashboardV02View(data: data)
-            case 3: HolisticDashboardV03View(data: data)
-            case 4: HolisticDashboardV04View(data: data)
-            case 5: HolisticDashboardV05View(data: data)
-            case 6: HolisticDashboardV06View(data: data)
-            case 7: HolisticDashboardV07View(data: data)
-            case 8: HolisticDashboardV08View(data: data)
-            case 9: HolisticDashboardV09View(data: data)
-            default: HolisticDashboardV10View(data: data)
-            }
-        case .page2HeartSleepCoupling:
-            let data = HeartSleepCouplingPreviewData(state: context.dataState.heartSleepState)
-            switch variantNumber {
-            case 1: HeartSleepCouplingV01View(data: data)
-            case 2: HeartSleepCouplingV02View(data: data)
-            case 3: HeartSleepCouplingV03View(data: data)
-            case 4: HeartSleepCouplingV04View(data: data)
-            case 5: HeartSleepCouplingV05View(data: data)
-            case 6: HeartSleepCouplingV06View(data: data)
-            case 7: HeartSleepCouplingV07View(data: data)
-            case 8: HeartSleepCouplingV08View(data: data)
-            case 9: HeartSleepCouplingV09View(data: data)
-            default: HeartSleepCouplingV10View(data: data)
-            }
-        case .page3WorkoutLoadProgression:
-            let data = WorkoutLoadProgressionPreviewData(state: context.dataState.workoutLoadState)
-            switch variantNumber {
-            case 1: WorkoutLoadProgressionV01View(data: data)
-            case 2: WorkoutLoadProgressionV02View(data: data)
-            case 3: WorkoutLoadProgressionV03View(data: data)
-            case 4: WorkoutLoadProgressionV04View(data: data)
-            case 5: WorkoutLoadProgressionV05View(data: data)
-            case 6: WorkoutLoadProgressionV06View(data: data)
-            case 7: WorkoutLoadProgressionV07View(data: data)
-            case 8: WorkoutLoadProgressionV08View(data: data)
-            case 9: WorkoutLoadProgressionV09View(data: data)
-            default: WorkoutLoadProgressionV10View(data: data)
-            }
-        case .page4StepsBodySettings:
-            let data = StepsBodySettingsPreviewData(state: context.dataState.stepsBodyState)
-            switch variantNumber {
-            case 1: StepsBodySettingsV01View(data: data)
-            case 2: StepsBodySettingsV02View(data: data)
-            case 3: StepsBodySettingsV03View(data: data)
-            case 4: StepsBodySettingsV04View(data: data)
-            case 5: StepsBodySettingsV05View(data: data)
-            case 6: StepsBodySettingsV06View(data: data)
-            case 7: StepsBodySettingsV07View(data: data)
-            case 8: StepsBodySettingsV08View(data: data)
-            case 9: StepsBodySettingsV09View(data: data)
-            default: StepsBodySettingsV10View(data: data)
-            }
-        }
+        let layer = LayeredComponentLayer(rawValue: context.page.rawValue) ?? .l1
+        LayeredComponentCandidateView(
+            data: LayeredComponentGalleryPreviewData(
+                layer: layer,
+                variant: variantNumber,
+                state: context.dataState
+            )
+        )
     }
 }
 
@@ -1200,7 +1087,7 @@ private struct VitalStridePreviewHostBoardContent: View {
             HStack(spacing: 6) {
                 Image(systemName: "waveform.path.ecg.rectangle.fill")
                     .foregroundStyle(resolvedTheme.accent)
-                Text("VitalStride 4-Page 10-Up 预览总控台")
+                Text("VitalStride 4-Layer 10-Up Component Gallery")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(resolvedTheme.foreground)
             }
@@ -1319,7 +1206,7 @@ private struct VitalStrideSinglePageGalleryView: View {
                 Text(controller.page.boardTitle)
                     .font(.headline.bold())
                     .foregroundStyle(theme.foreground)
-                Text("100% Native SwiftUI · 4 Pages × v01–v10 · 120Hz Interactive Host · Live SELECT/STAR/NOTES Receipt Sync")
+                Text("100% Native SwiftUI · 4 Layers × v01–v10 · 120Hz Interactive Host · Live SELECT/STAR/NOTES Receipt Sync")
                     .font(.caption)
                     .foregroundStyle(theme.secondaryForeground)
                 Text(controller.receiptWriter.fileURL.path)

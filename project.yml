@@ -188,6 +188,7 @@ targets:
       - path: VitalStride/Sources/AI/RoutingSignalStore.swift
       - path: VitalStride/Sources/AI/RoutingSignalStoreEnvironment.swift
       - path: VitalStride/Sources/HealthDataCacheEnvironment.swift
+      - path: VitalStride/Sources/FourLayerSummaryComponents.swift
       - path: VitalStride/Sources/OnboardingView.swift
       - path: VitalStride/Sources/WorkoutHeartRateStats.swift
     dependencies:

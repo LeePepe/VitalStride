@@ -17,6 +17,7 @@ final class HolisticDashboardState {
 
     private(set) var loadState: LoadState = .loading
     private(set) var report: AIService.HolisticFourLayerReport?
+    private(set) var snapshot: AIService.PhysiologicalSnapshot?
     private(set) var provider: PluggableAIProvider
     private let configuration: UserAIModelConfiguration
 
@@ -58,6 +59,7 @@ final class HolisticDashboardState {
     ) async {
         loadState = .loading
         report = nil
+        snapshot = nil
         let interval = DateInterval(
             start: Calendar.current.date(byAdding: .day, value: -30, to: generatedAt) ?? generatedAt,
             end: generatedAt
@@ -87,6 +89,7 @@ final class HolisticDashboardState {
             return
         }
 
+        self.snapshot = snapshot
         guard isProviderAvailable else {
             report = await FourLayerAdviceEngine().generate(snapshot: snapshot, model: configuration.modelID)
             provider = .deterministicFallback
@@ -114,21 +117,25 @@ final class HolisticDashboardState {
 
     func markError() {
         report = nil
+        snapshot = nil
         loadState = .error
     }
 
     func markEmpty() {
         report = nil
+        snapshot = nil
         loadState = .empty
     }
 
     func markLoading() {
         report = nil
+        snapshot = nil
         loadState = .loading
     }
 
     static func preview() -> HolisticDashboardState {
         let state = HolisticDashboardState()
+        state.snapshot = nil
         state.report = AIService.HolisticFourLayerReport(
             l1: [],
             l2: [
@@ -185,12 +192,12 @@ struct HolisticDashboardSection: View {
             centeredState(.error, title: L4Copy.errorTitle, message: L4Copy.errorMessage, actionTitle: L4Copy.retryAction, action: onRetry)
         case .populated:
             if let report = state.report {
-                VStack(alignment: .leading, spacing: Space.lg) {
-                    L4NorthStarHeroCard(report: report)
-                    L3ReadinessGateCard(report: report)
-                    CoreActionDirectivesCard(report: report, provider: state.provider)
-                    QuickDrillDownSection()
-                }
+                FourLayerSummaryDashboard(
+                    report: report,
+                    snapshot: state.snapshot,
+                    provider: state.provider
+                )
+                QuickDrillDownSection()
             }
         }
     }

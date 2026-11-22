@@ -525,23 +525,10 @@ struct BodyWeightDetailView: View {
                 }
 
                 AIDataAnalysisSection(sampleType: .bodyMass)
-
-                Section {
-                    ForEach(dataPoints.reversed()) { point in
-                        HStack {
-                            Text(point.date, format: .dateTime.month().day().weekday())
-                            Spacer()
-                            Text("\(formatted(displayWeight(point.weight))) \(weightUnit.rawValue)")
-                                .foregroundStyle(theme.secondaryForeground)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(
-                            "\(point.date.formatted(.dateTime.month().day())) \(formatted(displayWeight(point.weight))) \(weightUnit.a11yName)"
-                        )
-                    }
-                } header: {
-                    Text("体重记录", comment: "Weight records header")
-                }
+                PlatformHealthDetailActionButton(
+                    title: String(localized: "four_layer_health_detail", defaultValue: "View details in Apple Health ↗", comment: "Open weight details in Apple Health"),
+                    trend: dataPoints.map(\.weight)
+                )
             }
         }
         #if os(iOS)
