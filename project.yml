@@ -9,6 +9,9 @@ options:
   generateEmptyDirectories: true
 
 settings:
+  configs:
+    Debug:
+      ENABLE_DEBUG_DYLIB: true
   base:
     SWIFT_VERSION: "6.0"
     ENABLE_USER_SCRIPT_SANDBOXING: true
@@ -107,6 +110,8 @@ targets:
       - target: VitalStrideWidgets
     settings:
       configs:
+        Debug:
+          ENABLE_DEBUG_DYLIB: true
         # Release/CI archive 走 manual + 显式 App Store profile（fastlane 已拉取安装）。
         # Debug 继承顶层 Automatic，本地 Xcode 调试不受影响。
         Release:
@@ -205,6 +210,9 @@ targets:
         com.apple.developer.icloud-services:
           - CloudKit
     settings:
+      configs:
+        Debug:
+          ENABLE_DEBUG_DYLIB: true
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.mac
         PRODUCT_NAME: VitalStride
@@ -291,6 +299,9 @@ targets:
       - package: DesignKit
       - sdk: HealthKit.framework
     settings:
+      configs:
+        Debug:
+          ENABLE_DEBUG_DYLIB: true
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.leepepe.vitalstride.watchos
         PRODUCT_NAME: "VitalStrideWatch Watch App"
