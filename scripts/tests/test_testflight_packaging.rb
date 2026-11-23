@@ -6,6 +6,7 @@ require ENV["VITALSTRIDE_FASTLANE_TOOLCHAIN_PROBE"] == "1" ? "minitest" : "minit
 require "open3"
 require "rbconfig"
 require "rubygems"
+require "tmpdir"
 
 module FastlaneToolchain
   MINIMUM_VERSION = Gem::Version.new("2.238.0")
@@ -250,6 +251,8 @@ class TestFlightPackagingTests < Minitest::Test
 
     Fastlane::Actions.lane_context.clear
     tracked_environment.each { |key| ENV.delete(key) }
+    @ssd_root_tmpdir = Dir.mktmpdir("vitalstride-ssd-xcode-")
+    ENV["VITALSTRIDE_SSD_XCODE_ROOT"] = @ssd_root_tmpdir
     ENV["ASC_KEY_ID"] = "fixture-key-id"
     ENV["ASC_ISSUER_ID"] = "fixture-issuer-id"
     ENV["ASC_KEY_P8_BASE64"] = "fixture-key"
@@ -267,6 +270,7 @@ class TestFlightPackagingTests < Minitest::Test
     @original_environment.each do |key, value|
       value.nil? ? ENV.delete(key) : ENV[key] = value
     end
+    FileUtils.remove_entry(@ssd_root_tmpdir) if @ssd_root_tmpdir && Dir.exist?(@ssd_root_tmpdir)
   end
 
   def test_uses_real_fastlane_action_and_expected_version
@@ -351,6 +355,15 @@ class TestFlightPackagingTests < Minitest::Test
                  @build_options.dig(:export_options, :provisioningProfiles, APP_IDENTIFIER)
     assert_equal "VitalStride Widgets Store 2026 (Widget)",
                  @build_options.dig(:export_options, :provisioningProfiles, WIDGET_IDENTIFIER)
+    assert_equal File.join(@ssd_root_tmpdir, "Archives", Time.now.strftime("%Y-%m-%d")),
+                 @build_options[:build_path]
+    assert_equal File.join(@ssd_root_tmpdir, "DerivedData", "VitalStride-TestFlight"),
+                 @build_options[:derived_data_path]
+    assert_equal File.join(@ssd_root_tmpdir, "GymLogs"),
+                 @build_options[:buildlog_path]
+    assert Dir.exist?(@build_options[:build_path])
+    assert Dir.exist?(@build_options[:derived_data_path])
+    assert Dir.exist?(@build_options[:buildlog_path])
     refute_includes @build_options[:xcargs], "app-uuid"
     refute_includes @build_options[:xcargs], "widget-uuid"
     refute_includes @build_options[:xcargs], "stale"
@@ -405,7 +418,8 @@ class TestFlightPackagingTests < Minitest::Test
     [
       "SIGH_NAME", "SIGH_UUID", "SIGH_UDID",
       FABRICATED_APP_KEY, FABRICATED_WIDGET_KEY,
-      "ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_P8_BASE64", "GLITCHTIP_DSN"
+      "ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_P8_BASE64", "GLITCHTIP_DSN",
+      "VITALSTRIDE_SSD_XCODE_ROOT"
     ]
   end
 

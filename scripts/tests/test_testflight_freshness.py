@@ -456,6 +456,19 @@ class TestFlightFastfileDistribution(unittest.TestCase):
         )
         self.assertIn("distribution incomplete for group(s)", self.fastfile)
 
+    def test_ssd_xcode_paths_configured_for_build_app(self):
+        self.assertIn(
+            'SSD_XCODE_ROOT = ENV.fetch("VITALSTRIDE_SSD_XCODE_ROOT", "/Volumes/SSD/Xcode").freeze',
+            self.fastfile,
+        )
+        self.assertIn('ssd_archives_dir = File.join(ssd_xcode_root, "Archives", Time.now.strftime("%Y-%m-%d"))', self.fastfile)
+        self.assertIn('ssd_derived_data_dir = File.join(ssd_xcode_root, "DerivedData", "VitalStride-TestFlight")', self.fastfile)
+        self.assertIn('ssd_buildlog_dir = File.join(ssd_xcode_root, "GymLogs")', self.fastfile)
+        self.assertIn("FileUtils.mkdir_p([ssd_archives_dir, ssd_derived_data_dir, ssd_buildlog_dir])", self.fastfile)
+        self.assertIn("build_path: ssd_archives_dir,", self.fastfile)
+        self.assertIn("derived_data_path: ssd_derived_data_dir,", self.fastfile)
+        self.assertIn("buildlog_path: ssd_buildlog_dir,", self.fastfile)
+
 
 if __name__ == "__main__":
     unittest.main()

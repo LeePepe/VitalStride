@@ -18,6 +18,7 @@
 # App Store profile，build_app 显式映射，彻底不依赖 automatic 的启发式挑选。
 
 require "base64"
+require "fileutils"
 require "shellwords"
 
 default_platform(:ios)
@@ -28,6 +29,7 @@ SCHEME = "VitalStride".freeze
 XCODEPROJ = "VitalStride.xcodeproj".freeze
 TEAM_ID = "4Z8GG667QD".freeze
 MARKETING_VERSION = "1.1".freeze
+SSD_XCODE_ROOT = ENV.fetch("VITALSTRIDE_SSD_XCODE_ROOT", "/Volumes/SSD/Xcode").freeze
 
 # Helpers for post-upload internal beta group assignment (spaceship / ASC API).
 module VitalStrideTestflightDistribution
@@ -147,12 +149,24 @@ platform :ios do
       UI.user_error!("App and widget profile names must be distinct for VITALSTRIDE_APP_PROFILE_SPECIFIER and VITALSTRIDE_WIDGET_PROFILE_SPECIFIER")
     end
 
+    # 永久固定构建与归档目录到外置 SSD 物理真实路径（/Volumes/SSD/Xcode/...），
+    # 绕开 ~/Library/Developer/Xcode/Archives 符号链接在 Ruby 4.0 下的 FileUtils.mkdir_p 阻塞，
+    # 同时避免占用内置系统盘空间。
+    ssd_xcode_root = ENV.fetch("VITALSTRIDE_SSD_XCODE_ROOT", SSD_XCODE_ROOT)
+    ssd_archives_dir = File.join(ssd_xcode_root, "Archives", Time.now.strftime("%Y-%m-%d"))
+    ssd_derived_data_dir = File.join(ssd_xcode_root, "DerivedData", "VitalStride-TestFlight")
+    ssd_buildlog_dir = File.join(ssd_xcode_root, "GymLogs")
+    FileUtils.mkdir_p([ssd_archives_dir, ssd_derived_data_dir, ssd_buildlog_dir])
+
     build_app(
       project: XCODEPROJ,
       scheme: SCHEME,
       configuration: "Release",
       export_method: "app-store",
       export_team_id: TEAM_ID,
+      build_path: ssd_archives_dir,
+      derived_data_path: ssd_derived_data_dir,
+      buildlog_path: ssd_buildlog_dir,
       **(ENV["TELEMETRY_XCCONFIG_PATH"].to_s.empty? ? {} : { xcconfig: ENV["TELEMETRY_XCCONFIG_PATH"] }),
       # 签名走 project.yml 的 Release config：每个 target 各自 Manual +
       # PROVISIONING_PROFILE_SPECIFIER（profile 已由上面 get_provisioning_profile
