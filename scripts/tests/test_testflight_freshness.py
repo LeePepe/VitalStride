@@ -458,7 +458,7 @@ class TestFlightFastfileDistribution(unittest.TestCase):
 
     def test_ssd_xcode_paths_configured_for_build_app(self):
         self.assertIn(
-            'SSD_XCODE_ROOT = ENV.fetch("VITALSTRIDE_SSD_XCODE_ROOT", "/Volumes/SSD/Xcode").freeze',
+            'SSD_XCODE_ROOT = ENV.fetch("VITALSTRIDE_SSD_XCODE_ROOT", "/Users/lee/XcodeSSD").freeze',
             self.fastfile,
         )
         self.assertIn('ssd_archives_dir = File.join(ssd_xcode_root, "Archives", Time.now.strftime("%Y-%m-%d"))', self.fastfile)
