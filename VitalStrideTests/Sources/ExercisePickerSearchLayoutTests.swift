@@ -16,15 +16,27 @@ struct ExercisePickerSearchLayoutTests {
     func dockStaysInOneRow() {
         for width: CGFloat in [296, 369, 406, 720] {
             for query in ["", "bench", "no results"] {
-                let host = UIHostingController(rootView: PickerBottomBar(
+                let bar = PickerBottomBar(
                     searchText: .constant(query), selectedCount: 3, isMultiSelect: true,
                     onCreate: {}, onConfirm: {}
-                ).designTheme())
+                )
+                #expect(bar.isShowingExpandedSearch == !query.isEmpty)
+                let host = UIHostingController(rootView: bar.designTheme())
                 let size = host.sizeThatFits(in: CGSize(width: width, height: .infinity))
                 #expect(size.width <= width + 1)
                 #expect(size.height >= 44)
                 #expect(size.height <= 64, "Dock must remain a single control row at \(width)pt")
             }
+            let expandedEmptyBar = PickerBottomBar(
+                searchText: .constant(""), selectedCount: 3, isMultiSelect: true,
+                isSearchExpanded: true, onCreate: {}, onConfirm: {}
+            )
+            #expect(expandedEmptyBar.isShowingExpandedSearch)
+            let expandedHost = UIHostingController(rootView: expandedEmptyBar.designTheme())
+            let expandedSize = expandedHost.sizeThatFits(in: CGSize(width: width, height: .infinity))
+            #expect(expandedSize.width <= width + 1)
+            #expect(expandedSize.height >= 44)
+            #expect(expandedSize.height <= 64)
         }
     }
 

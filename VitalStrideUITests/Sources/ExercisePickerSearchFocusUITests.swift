@@ -361,14 +361,14 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         )
     }
 
-    /// Capture the persistent dock both idle and focused as visual evidence.
+    /// Capture the bottom dock both collapsed-icon idle and expanded-focused as visual evidence.
     @MainActor
     func test_capturePersistentSearchStateScreenshots() throws {
         let app = launchPicker(mode: "single")
-        let field = app.textFields["exercise_picker_search_field"]
-        XCTAssertTrue(field.waitForExistence(timeout: UITestTimeout.uiSettle))
-        XCTAssertTrue(waitForElementTapReadiness(in: app, element: field))
-        XCTAssertFalse(field.hasKeyboardFocus)
+        let searchIcon = app.buttons["exercise_picker_search"]
+        XCTAssertTrue(searchIcon.waitForExistence(timeout: UITestTimeout.uiSettle))
+        XCTAssertTrue(waitForElementTapReadiness(in: app, element: searchIcon))
+        XCTAssertFalse(app.textFields["exercise_picker_search_field"].exists)
         XCTAssertFalse(app.keyboards.firstMatch.exists)
         let idleScreenshot = XCUIScreen.main.screenshot()
         let idleAttachment = XCTAttachment(screenshot: idleScreenshot)
@@ -376,7 +376,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         idleAttachment.lifetime = .keepAlways
         add(idleAttachment)
 
-        // Focus the same mounted field before capturing the typing state.
+        // Expand and focus the search field before capturing the typing state.
         let searchField = openSearchField(in: app)
         searchField.typeText("bench")
         XCTAssertTrue(waitForFocusedSearchFieldReady(in: app, text: "bench"),
@@ -406,7 +406,7 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         return app
     }
 
-    /// Wait for the persistent bottom input to be visible before focusing it.
+    /// Expand the collapsed search icon button (when present) and focus the bottom search input.
     @MainActor
     private func openSearchField(in app: XCUIApplication) -> XCUIElement {
         _ = app.navigationBars.firstMatch.waitForExistence(timeout: UITestTimeout.uiSettle)
@@ -417,20 +417,31 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         var lastWindowFrame: CGRect = .zero
         var readyField: XCUIElement?
 
+        let searchIcon = app.buttons["exercise_picker_search"]
+        var hasTappedSearchIcon = false
         while Date() < deadline {
             let currentField = app.textFields["exercise_picker_search_field"]
             let currentWindow = app.windows.firstMatch
             lastFieldExists = currentField.exists
-            lastFieldFrame = currentField.frame
             lastWindowExists = currentWindow.exists
             lastWindowFrame = currentWindow.exists ? currentWindow.frame : .zero
 
-            if searchFieldTapReadiness(fieldExists: lastFieldExists,
-                                       fieldFrame: lastFieldFrame,
-                                       windowFrame: lastWindowFrame,
-                                       isHittable: currentField.isHittable) {
-                readyField = currentField
-                break
+            if lastFieldExists {
+                lastFieldFrame = currentField.frame
+                if searchFieldTapReadiness(fieldExists: lastFieldExists,
+                                           fieldFrame: lastFieldFrame,
+                                           windowFrame: lastWindowFrame,
+                                           isHittable: currentField.isHittable) {
+                    readyField = currentField
+                    break
+                }
+            } else if !hasTappedSearchIcon, searchIcon.exists,
+                      searchFieldTapReadiness(fieldExists: true,
+                                              fieldFrame: searchIcon.frame,
+                                              windowFrame: lastWindowFrame,
+                                              isHittable: searchIcon.isHittable) {
+                searchIcon.tap()
+                hasTappedSearchIcon = true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }
@@ -450,15 +461,15 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
 
     @MainActor
     private func assertSearchReset(in app: XCUIApplication) {
-        let field = app.textFields["exercise_picker_search_field"]
-        let reset = expectation(
-            for: NSPredicate(format: "exists == true AND (value == %@ OR value == placeholderValue)", ""),
-            evaluatedWith: field, handler: nil)
+        let searchIcon = app.buttons["exercise_picker_search"]
+        let collapsed = expectation(
+            for: NSPredicate(format: "exists == true"),
+            evaluatedWith: searchIcon, handler: nil)
         let noKeyboard = expectation(for: NSPredicate(format: "exists == false"),
                                      evaluatedWith: app.keyboards.firstMatch, handler: nil)
-        wait(for: [reset, noKeyboard], timeout: UITestTimeout.uiSettle)
-        XCTAssertTrue(waitForElementTapReadiness(in: app, element: field))
-        XCTAssertFalse(field.hasKeyboardFocus)
+        wait(for: [collapsed, noKeyboard], timeout: UITestTimeout.uiSettle)
+        XCTAssertTrue(waitForElementTapReadiness(in: app, element: searchIcon))
+        XCTAssertFalse(app.textFields["exercise_picker_search_field"].exists)
         XCTAssertFalse(app.buttons["exercise_picker_search_clear"].exists)
         XCTAssertTrue(app.buttons["exercise_picker_create"].isHittable)
         XCTAssertTrue(app.buttons["exercise_picker_confirm"].isHittable)
@@ -468,12 +479,14 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
     private func waitForElementTapReadiness(in app: XCUIApplication, element: XCUIElement) -> Bool {
         let deadline = Date().addingTimeInterval(UITestTimeout.uiSettle)
         while Date() < deadline {
-            let window = app.windows.firstMatch
-            let windowFrame = window.exists ? window.frame : .zero
-            let frame = element.frame
-            if isFiniteAndNonEmpty(frame), isFiniteAndNonEmpty(windowFrame),
-               !frame.intersection(windowFrame).isEmpty, element.isHittable {
-                return true
+            if element.exists {
+                let window = app.windows.firstMatch
+                let windowFrame = window.exists ? window.frame : .zero
+                let frame = element.frame
+                if isFiniteAndNonEmpty(frame), isFiniteAndNonEmpty(windowFrame),
+                   !frame.intersection(windowFrame).isEmpty, element.isHittable {
+                    return true
+                }
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }
@@ -485,16 +498,17 @@ final class ExercisePickerSearchFocusUITests: XCTestCase {
         let deadline = Date().addingTimeInterval(UITestTimeout.uiSettle)
         while Date() < deadline {
             let currentField = app.textFields["exercise_picker_search_field"]
-            let currentWindow = app.windows.firstMatch
-            let windowFrame = currentWindow.exists ? currentWindow.frame : .zero
-            if searchFieldTapReadiness(fieldExists: currentField.exists,
-                                       fieldFrame: currentField.frame,
-                                       windowFrame: windowFrame,
-                                       isHittable: currentField.isHittable),
-               currentField.hasKeyboardFocus,
-               ((currentField.value as? String)?.contains(text) ?? false),
-               currentField.hasKeyboardFocus {
-                return true
+            if currentField.exists {
+                let currentWindow = app.windows.firstMatch
+                let windowFrame = currentWindow.exists ? currentWindow.frame : .zero
+                if searchFieldTapReadiness(fieldExists: true,
+                                           fieldFrame: currentField.frame,
+                                           windowFrame: windowFrame,
+                                           isHittable: currentField.isHittable),
+                   currentField.hasKeyboardFocus,
+                   ((currentField.value as? String)?.contains(text) ?? false) {
+                    return true
+                }
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }

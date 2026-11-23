@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import DesignKit
 import Testing
 
@@ -96,5 +97,64 @@ struct ExercisePickerCardGridLayoutTests {
     @Test("Standard Dynamic Type layout strictly preserves 2-column exercise card grid")
     func gridColumnCountIsTwo() {
         #expect(ExercisePickerView.gridColumnCount == 2)
+        for dynamicType in [
+            DynamicTypeSize.xSmall,
+            .small,
+            .medium,
+            .large,
+            .xLarge,
+            .xxLarge,
+            .xxxLarge
+        ] {
+            for category in [
+                ContentSizeCategory.extraSmall,
+                .small,
+                .medium,
+                .large,
+                .extraLarge,
+                .extraExtraLarge,
+                .extraExtraExtraLarge
+            ] {
+                #expect(
+                    ExercisePickerView.columnCount(
+                        dynamicTypeSize: dynamicType,
+                        sizeCategory: category
+                    ) == 2,
+                    "Expected 2 columns for dynamicType=\(dynamicType), sizeCategory=\(category)"
+                )
+            }
+        }
+    }
+
+    @Test("Accessibility Dynamic Type sizes switch to 1-column exercise card grid")
+    func accessibilitySizesUseSingleColumn() {
+        for dynamicType in [
+            DynamicTypeSize.accessibility1,
+            .accessibility2,
+            .accessibility3,
+            .accessibility4,
+            .accessibility5
+        ] {
+            #expect(
+                ExercisePickerView.columnCount(
+                    dynamicTypeSize: dynamicType,
+                    sizeCategory: .large
+                ) == 1
+            )
+        }
+        for category in [
+            ContentSizeCategory.accessibilityMedium,
+            .accessibilityLarge,
+            .accessibilityExtraLarge,
+            .accessibilityExtraExtraLarge,
+            .accessibilityExtraExtraExtraLarge
+        ] {
+            #expect(
+                ExercisePickerView.columnCount(
+                    dynamicTypeSize: .large,
+                    sizeCategory: category
+                ) == 1
+            )
+        }
     }
 }
