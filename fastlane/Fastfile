@@ -29,7 +29,7 @@ SCHEME = "VitalStride".freeze
 XCODEPROJ = "VitalStride.xcodeproj".freeze
 TEAM_ID = "4Z8GG667QD".freeze
 MARKETING_VERSION = "1.1".freeze
-SSD_XCODE_ROOT = ENV.fetch("VITALSTRIDE_SSD_XCODE_ROOT", "/Volumes/SSD/Xcode").freeze
+SSD_XCODE_ROOT = ENV.fetch("VITALSTRIDE_SSD_XCODE_ROOT", "/Users/lee/XcodeSSD").freeze
 
 # Helpers for post-upload internal beta group assignment (spaceship / ASC API).
 module VitalStrideTestflightDistribution
@@ -149,9 +149,8 @@ platform :ios do
       UI.user_error!("App and widget profile names must be distinct for VITALSTRIDE_APP_PROFILE_SPECIFIER and VITALSTRIDE_WIDGET_PROFILE_SPECIFIER")
     end
 
-    # 永久固定构建与归档目录到外置 SSD 物理真实路径（/Volumes/SSD/Xcode/...），
-    # 绕开 ~/Library/Developer/Xcode/Archives 符号链接在 Ruby 4.0 下的 FileUtils.mkdir_p 阻塞，
-    # 同时避免占用内置系统盘空间。
+    # 永久固定构建与归档目录到外置 SSD APFS 卷挂载点（/Users/lee/XcodeSSD/...），
+    # 既避免占用内置系统盘空间，又因挂载点不在 /Volumes/ 下而彻底绕开 macOS kTCCServiceSystemPolicyRemovableVolumes 拦截。
     ssd_xcode_root = ENV.fetch("VITALSTRIDE_SSD_XCODE_ROOT", SSD_XCODE_ROOT)
     ssd_archives_dir = File.join(ssd_xcode_root, "Archives", Time.now.strftime("%Y-%m-%d"))
     ssd_derived_data_dir = File.join(ssd_xcode_root, "DerivedData", "VitalStride-TestFlight")
