@@ -290,24 +290,26 @@ struct ExercisePickerView: View {
         self.selectionMode = .multiple(onConfirm: onSelectMultiple)
     }
 
-    static let gridColumnCount = 2
-    static let muscleSidebarWidth: CGFloat = 64
+    static nonisolated let gridColumnCount = 2
+    static nonisolated let muscleSidebarWidth: CGFloat = 60
+
+    static nonisolated func columnCount(
+        dynamicTypeSize: DynamicTypeSize,
+        sizeCategory: ContentSizeCategory
+    ) -> Int {
+        let isAccessibilityLayout = dynamicTypeSize.isAccessibilitySize
+            || sizeCategory.isAccessibilityCategory
+        return isAccessibilityLayout ? 1 : Self.gridColumnCount
+    }
 
     private var gridColumns: [GridItem] {
-        let isAccessibilityLayout: Bool
-        switch dynamicTypeSize {
-        case .accessibility1, .accessibility2, .accessibility3, .accessibility4, .accessibility5:
-            isAccessibilityLayout = true
-        default:
-            isAccessibilityLayout = false
-        }
-        let usesSingleColumn = isAccessibilityLayout
-            || sizeCategory.isAccessibilityCategory
-            || sizeCategory != .large
-            || dynamicTypeSize != .large
+        let count = Self.columnCount(
+            dynamicTypeSize: dynamicTypeSize,
+            sizeCategory: sizeCategory
+        )
         return Array(
             repeating: GridItem(.flexible(), spacing: 10),
-            count: usesSingleColumn ? 1 : Self.gridColumnCount
+            count: count
         )
     }
 
@@ -512,21 +514,41 @@ struct ExercisePickerView: View {
     static let collapsedSearchDiameter: CGFloat = 44
 
     private var floatingSearchAndFilterPanel: some View {
-        PickerBottomBar(searchText: $searchText, selectedCount: selectedIDs.count,
-                        isMultiSelect: isMultiSelect, onCreate: { presentedSheet = .create }, onConfirm: {
-            if case .multiple(let onConfirm) = selectionMode {
-                signposter.emitEvent("exercise_picker_confirm", "count=\(selectedIDs.count)")
-                onConfirm(selectedExercises)
-            }
-            dismiss()
-        })
+        VStack(spacing: 8) {
+            equipmentFilterRail
+            PickerBottomBar(
+                searchText: $searchText,
+                selectedCount: selectedIDs.count,
+                isMultiSelect: isMultiSelect,
+                embedsInOuterDock: true,
+                onCreate: { presentedSheet = .create },
+                onConfirm: {
+                    if case .multiple(let onConfirm) = selectionMode {
+                        signposter.emitEvent("exercise_picker_confirm", "count=\(selectedIDs.count)")
+                        onConfirm(selectedExercises)
+                    }
+                    dismiss()
+                }
+            )
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, Space.xs)
+        .background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        }
+        .shadow(color: Color.black.opacity(0.08), radius: 8, y: 2)
         .padding(.horizontal, Self.panelHorizontalInset)
         .padding(.bottom, 8)
     }
 
     private var equipmentFilterRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 equipmentFilterChip(
                     label: String(localized: "全部器械", comment: "All equipment filters"),
                     value: nil
@@ -538,16 +560,12 @@ struct ExercisePickerView: View {
                     )
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 4)
         }
-        .frame(height: 50)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.primary.opacity(0.05))
-                .frame(height: 0.5)
-        }
+        .frame(height: 40)
         .contentShape(Rectangle())
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("exercise_picker_equipment_filter_rail")
     }
 
     private func equipmentFilterChip(
@@ -561,14 +579,14 @@ struct ExercisePickerView: View {
             Text(label)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
-                .padding(.horizontal, Space.sm)
+                .padding(.horizontal, 10)
                 .fixedSize(horizontal: true, vertical: false)
-                .frame(height: 34)
+                .frame(height: 32)
                 .foregroundStyle(
                     isSelected ? Color.white : Color.primary
                 )
                 .background(
-                    isSelected ? Color.accentColor : Color(uiColor: .secondarySystemGroupedBackground),
+                    isSelected ? Color.accentColor : Color(uiColor: .tertiarySystemFill),
                     in: Capsule()
                 )
                 .overlay {
@@ -580,7 +598,7 @@ struct ExercisePickerView: View {
                 }
         }
         .buttonStyle(.plain)
-        .frame(minHeight: 44)
+        .frame(minHeight: 40)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -594,7 +612,7 @@ struct ExercisePickerView: View {
         }
         .frame(width: Self.muscleSidebarWidth)
         .contentMargins(.bottom, panelHeight + Space.md, for: .scrollContent)
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .background(Color(uiColor: .systemGroupedBackground))
         .overlay(alignment: .trailing) {
             Rectangle()
                 .fill(Color(uiColor: .separator))
@@ -632,14 +650,14 @@ struct ExercisePickerView: View {
                     .font(.caption2.monospacedDigit().weight(.bold))
                     .foregroundStyle(Color.white)
                     .padding(.horizontal, 6)
-                    .padding(.vertical, 1)
+                    .frame(minHeight: 16)
                     .background(Color.accentColor, in: Capsule())
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 48)
-        .foregroundStyle(selected ? Color.accentColor : Color.primary)
+        .frame(maxWidth: .infinity, minHeight: 46)
+        .foregroundStyle(selected ? Color.accentColor : Color.secondary)
         .background(
-            selected ? Color.accentColor.opacity(0.14) : Color.clear,
+            selected ? Color.accentColor.opacity(0.10) : Color.clear,
             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
         .overlay(alignment: .leading) {
@@ -647,13 +665,6 @@ struct ExercisePickerView: View {
                 .fill(selected ? Color.accentColor : Color.clear)
                 .frame(width: 3, height: 18)
                 .padding(.leading, 2)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(
-                    selected ? Color.accentColor.opacity(0.24) : Color.clear,
-                    lineWidth: 1
-                )
         }
         .contentShape(Rectangle())
     }
@@ -792,10 +803,8 @@ struct ExercisePickerView: View {
         let groups = filteredEquipmentGroups
         let equipments = groups.map { $0.0 }
         let showsIndexBar = equipments.count >= 2
-        return VStack(alignment: .leading, spacing: 0) {
-            equipmentFilterRail
-            ScrollViewReader { gridProxy in
-                ZStack(alignment: .trailing) {
+        return ScrollViewReader { gridProxy in
+            ZStack(alignment: .trailing) {
                 ScrollView {
                     if groups.isEmpty {
                         // Sized to the scroll container so the placeholder
@@ -947,14 +956,13 @@ struct ExercisePickerView: View {
             // can target the current `visibleEquipment` when it
             // survives (see `resolveMuscleGroupScrollAnchor`), while
             // search resets still fall back to the first section.
-                .onChange(of: scrollResetToken) { _, _ in
-                    let target = pendingScrollAnchor ?? groups.first?.0
-                    guard let anchor = target else { return }
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        gridProxy.scrollTo(anchor, anchor: .top)
-                    }
+            .onChange(of: scrollResetToken) { _, _ in
+                let target = pendingScrollAnchor ?? groups.first?.0
+                guard let anchor = target else { return }
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    gridProxy.scrollTo(anchor, anchor: .top)
                 }
             }
         }
@@ -1259,11 +1267,11 @@ struct ExercisePickerView: View {
         isFirst: Bool
     ) -> some View {
         let color = categoryColor(sectionPaletteIndex(for: equipment), theme: theme)
-        return HStack(alignment: .center, spacing: 8) {
+        return HStack(alignment: .center, spacing: 6) {
             Image(systemName: equipment.sfSymbol)
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(color)
-                .frame(width: 22, height: 22)
+                .frame(width: 20, height: 20)
                 .background(
                     color.opacity(0.15),
                     in: RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -1361,7 +1369,6 @@ private struct FloatingPanelAttachment<Panel: View>: ViewModifier {
 // MARK: - Exercise Card
 
 private struct ExerciseCard: View, Equatable {
-    @Environment(\.theme) private var theme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let snapshot: ExercisePickerCardSnapshot
     let isSelected: Bool
@@ -1374,10 +1381,6 @@ private struct ExerciseCard: View, Equatable {
             && lhs.showsSelectionIndicator == rhs.showsSelectionIndicator
     }
 
-    private var equipmentColor: Color {
-        categoryColor(categoryColorIndex(for: snapshot.equipment), theme: theme)
-    }
-
     var body: some View {
         Button(action: onTap) {
             cardContent
@@ -1388,43 +1391,29 @@ private struct ExerciseCard: View, Equatable {
 
     private var cardContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 6) {
-                Image(systemName: snapshot.equipment.sfSymbol)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(equipmentColor)
-                    .frame(width: 28, height: 28)
-                    .background(
-                        equipmentColor.opacity(0.15),
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    )
-                Text(snapshot.equipmentLocalizedName)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color.secondary)
-                    .lineLimit(1)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
-                Spacer(minLength: 0)
+            HStack(alignment: .top, spacing: 6) {
+                Text(snapshot.localizedName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.primary)
+                    .lineLimit(2, reservesSpace: true)
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
+
                 if showsSelectionIndicator {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "plus.circle")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.45))
-                        .frame(width: 24, height: 24)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.38))
+                        .frame(width: 20, height: 20)
                         .accessibilityHidden(true)
                 }
             }
 
             mediaPreview
 
-            Text(snapshot.localizedName)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.primary)
-                .lineLimit(2, reservesSpace: true)
-                .minimumScaleFactor(0.88)
-                .fixedSize(horizontal: false, vertical: true)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
+            Spacer(minLength: 0)
 
             Text(snapshot.muscleLocalizedName)
                 .font(.caption2)
@@ -1434,12 +1423,12 @@ private struct ExerciseCard: View, Equatable {
         }
         .frame(
             maxWidth: .infinity,
-            minHeight: dynamicTypeSize.isAccessibilitySize ? 140 : 104,
+            minHeight: dynamicTypeSize.isAccessibilitySize ? 112 : 80,
             alignment: .topLeading
         )
         .padding(10)
         .background(
-            isSelected ? Color.accentColor.opacity(0.12) : Color(uiColor: .secondarySystemGroupedBackground),
+            isSelected ? Color.accentColor.opacity(0.10) : Color(uiColor: .secondarySystemGroupedBackground),
             in: RoundedRectangle(cornerRadius: 14, style: .continuous)
         )
         .overlay {
@@ -1481,18 +1470,18 @@ private struct EquipmentIndexBar: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let height = min(geometry.size.height, CGFloat(equipments.count) * 28)
+            let height = min(geometry.size.height, CGFloat(equipments.count) * 26)
             VStack(spacing: 0) {
                 VStack(spacing: 0) {
                     ForEach(equipments, id: \.self) { equipment in
                         Text(ExercisePickerSectionGrouping.indexCharacter(for: equipment))
-                            .font(.caption2.weight(activeEquipment == equipment ? .heavy : .medium))
+                            .font(.caption2.weight(activeEquipment == equipment ? .heavy : .semibold))
                             .foregroundStyle(activeEquipment == equipment ? Color.accentColor : Color.secondary)
                             .frame(width: 16, height: height / CGFloat(max(equipments.count, 1)))
                     }
                 }
                 .padding(.vertical, 6)
-                .frame(width: 24)
+                .frame(width: 20)
                 .background(
                     Color(uiColor: .secondarySystemGroupedBackground).opacity(0.92),
                     in: Capsule()
@@ -1567,62 +1556,175 @@ private enum PickerSheet: Identifiable {
 }
 
 /// The actual production dock is also hosted by the layout regression tests.
-/// All three controls stay mounted in one horizontal row while typing or filtering.
+/// When search is inactive and empty, search collapses to a compact 44x44pt
+/// circular `magnifyingglass` icon button next to Create and Done; tapping the
+/// icon expands and focuses the full search field.
 struct PickerBottomBar: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var searchText: String
+    @State private var isSearchExpanded: Bool
     @FocusState private var isSearchFocused: Bool
     let selectedCount: Int
     let isMultiSelect: Bool
+    let embedsInOuterDock: Bool
     let onCreate: () -> Void
     let onConfirm: () -> Void
+
+    init(
+        searchText: Binding<String>,
+        selectedCount: Int,
+        isMultiSelect: Bool,
+        isSearchExpanded: Bool = false,
+        embedsInOuterDock: Bool = false,
+        onCreate: @escaping () -> Void,
+        onConfirm: @escaping () -> Void
+    ) {
+        self._searchText = searchText
+        self.selectedCount = selectedCount
+        self.isMultiSelect = isMultiSelect
+        self._isSearchExpanded = State(initialValue: isSearchExpanded || !searchText.wrappedValue.isEmpty)
+        self.embedsInOuterDock = embedsInOuterDock
+        self.onCreate = onCreate
+        self.onConfirm = onConfirm
+    }
+
+    var isShowingExpandedSearch: Bool {
+        isSearchExpanded || !searchText.isEmpty
+    }
+
+    private var expandAnimation: Animation {
+        reduceMotion
+            ? .easeOut(duration: 0.15)
+            : .spring(response: 0.28, dampingFraction: 0.86)
+    }
 
     var body: some View {
         let isConfirmDisabled = isMultiSelect && selectedCount == 0
         HStack(spacing: Space.xs) {
-            searchField
+            if isShowingExpandedSearch {
+                searchField
+                    .frame(maxWidth: .infinity)
+                    .layoutPriority(1)
+                collapseSearchButton
+            } else {
+                collapsedSearchIconButton
+                Button(action: onCreate) {
+                    createButtonLabel
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
                 .frame(maxWidth: .infinity)
                 .layoutPriority(1)
-            Button(action: onCreate) {
-                createButtonLabel
+                .accessibilityLabel(String(localized: "picker.create", comment: "Create custom exercise"))
+                .accessibilityIdentifier("exercise_picker_create")
+                Button(action: onConfirm) {
+                    confirmButtonLabel(isConfirmDisabled: isConfirmDisabled)
+                }
+                .buttonStyle(.plain)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(2)
+                .foregroundStyle(isConfirmDisabled ? Color.secondary : Color.white)
+                .disabled(isConfirmDisabled)
+                .accessibilityLabel(String(localized: "picker.done", comment: "Confirm exercise selection"))
+                .accessibilityValue(String(localized: "picker.selected.count \(selectedCount)", comment: "Selected exercise count"))
+                .accessibilityIdentifier("exercise_picker_confirm")
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(Color.accentColor)
-            .accessibilityLabel(String(localized: "picker.create", comment: "Create custom exercise"))
-            .accessibilityIdentifier("exercise_picker_create")
-            Button(action: onConfirm) {
-                confirmButtonLabel(isConfirmDisabled: isConfirmDisabled)
-            }
-            .buttonStyle(.plain)
-            .fixedSize(horizontal: true, vertical: false)
-            .layoutPriority(2)
-            .foregroundStyle(isConfirmDisabled ? Color.secondary : Color.white)
-            .disabled(isConfirmDisabled)
-            .accessibilityLabel(String(localized: "picker.done", comment: "Confirm exercise selection"))
-            .accessibilityValue(String(localized: "picker.selected.count \(selectedCount)", comment: "Selected exercise count"))
-            .accessibilityIdentifier("exercise_picker_confirm")
         }
-        .padding(Space.xs)
-        .background(
-            Color(uiColor: .secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-        )
+        .padding(embedsInOuterDock ? 0 : Space.xs)
+        .background {
+            if !embedsInOuterDock {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            }
+        }
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            if !embedsInOuterDock {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            }
         }
-        .shadow(color: Color.black.opacity(0.08), radius: 8, y: 2)
+        .shadow(
+            color: embedsInOuterDock ? .clear : Color.black.opacity(0.08),
+            radius: embedsInOuterDock ? 0 : 8,
+            y: embedsInOuterDock ? 0 : 2
+        )
+        .onChange(of: searchText) { _, newValue in
+            if !newValue.isEmpty, !isSearchExpanded {
+                isSearchExpanded = true
+            }
+        }
+    }
+
+    private var collapsedSearchIconButton: some View {
+        Button {
+            withAnimation(expandAnimation) {
+                isSearchExpanded = true
+            }
+            isSearchFocused = true
+        } label: {
+            Image(systemName: "magnifyingglass")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.primary)
+                .frame(
+                    width: ExercisePickerView.collapsedSearchDiameter,
+                    height: ExercisePickerView.collapsedSearchDiameter
+                )
+                .background(Color(uiColor: .tertiarySystemFill), in: Circle())
+                .overlay {
+                    Circle()
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "搜索动作", comment: "Exercise search prompt"))
+        .accessibilityIdentifier("exercise_picker_search")
+    }
+
+    private var collapseSearchButton: some View {
+        Button {
+            isSearchFocused = false
+            #if canImport(UIKit)
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            #endif
+            searchText = ""
+            withAnimation(expandAnimation) {
+                isSearchExpanded = false
+            }
+        } label: {
+            Image(systemName: "xmark")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.secondary)
+                .frame(
+                    width: ExercisePickerView.collapsedSearchDiameter,
+                    height: ExercisePickerView.collapsedSearchDiameter
+                )
+                .background(Color(uiColor: .tertiarySystemFill), in: Circle())
+                .overlay {
+                    Circle()
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "取消", comment: "Collapse search button"))
+        .accessibilityIdentifier("exercise_picker_search_collapse")
     }
 
     private var createButtonLabel: some View {
         ViewThatFits(in: .horizontal) {
-            Text(String(localized: "picker.create", comment: "Create custom exercise"))
-                .font(.caption.weight(.semibold))
-                .fixedSize()
-                .padding(.horizontal, Space.xs)
+            HStack(spacing: 4) {
+                Image(systemName: "plus")
+                    .font(.caption.weight(.bold))
+                Text(String(localized: "picker.create", comment: "Create custom exercise"))
+                    .font(.caption.weight(.semibold))
+            }
+            .fixedSize()
+            .padding(.horizontal, Space.sm)
             Image(systemName: "plus")
                 .font(.subheadline.weight(.bold))
         }
-        .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
+        .frame(minWidth: Space.minTapTarget, maxWidth: .infinity, minHeight: Space.minTapTarget)
         .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
         .overlay {
             Capsule()
@@ -1644,7 +1746,7 @@ struct PickerBottomBar: View {
         }
         .font(.subheadline.weight(.semibold))
         .fixedSize()
-        .padding(.horizontal, Space.sm)
+        .padding(.horizontal, Space.md)
         .frame(minWidth: Space.minTapTarget, minHeight: Space.minTapTarget)
         .background(
             isConfirmDisabled ? Color(uiColor: .tertiarySystemFill) : Color.accentColor,
@@ -1668,6 +1770,11 @@ struct PickerBottomBar: View {
                     #if canImport(UIKit)
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                     #endif
+                    if searchText.isEmpty {
+                        withAnimation(expandAnimation) {
+                            isSearchExpanded = false
+                        }
+                    }
                 }
                 .accessibilityIdentifier("exercise_picker_search_field")
             if !searchText.isEmpty {
@@ -1678,6 +1785,9 @@ struct PickerBottomBar: View {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                     #endif
                     searchText = ""
+                    withAnimation(expandAnimation) {
+                        isSearchExpanded = false
+                    }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(Color.secondary)

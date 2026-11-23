@@ -118,4 +118,18 @@ struct ExercisePickerNestedLazyRegressionTests {
             "Sidebar muscle counts must use O(1) dictionary lookup rather than filtering selectedExercises per muscle button."
         )
     }
+
+    @Test("ExerciseCard is subtractive (no inline equipment pill) and equipmentFilterRail sits in the bottom dock")
+    func subtractiveCardAndBottomEquipmentRail() throws {
+        let code = try exercisePickerCodeLines()
+
+        #expect(
+            !code.contains(where: { $0.contains("snapshot.equipmentLocalizedName") }),
+            "ExerciseCard must not render a redundant equipment pill inside each card."
+        )
+        #expect(
+            !code.contains(where: { $0.contains("sizeCategory != .large") || $0.contains("dynamicTypeSize != .large") }),
+            "gridColumns must not fall back to 1 column for non-large standard Dynamic Type sizes."
+        )
+    }
 }
