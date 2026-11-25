@@ -261,9 +261,30 @@ if [ -z "$LOGICAL_MODEL" ] && [ -n "${REVIEW_LOGICAL_MODEL:-}" ]; then
     )"
 fi
 
-VERDICT="$(printf %s "$VERDICT_JSON" | jq -r '.verdict')"
-SUMMARY="$(printf %s "$VERDICT_JSON" | jq -r '.summary')"
-N_BLOCK="$(printf %s "$VERDICT_JSON" | jq -r '.blockers | length')"
+VERDICT="$(printf %s "$VERDICT_JSON" | jq -r '.verdict // "changes"')"
+SUMMARY="$(printf %s "$VERDICT_JSON" | jq -r '.summary // ""')"
+N_BLOCK="$(printf %s "$VERDICT_JSON" | jq -r '(.blockers // []) | length')"
+
+JQ_RENDER_HELPERS='
+def trim_str: if type == "string" then gsub("^[[:space:]]+|[[:space:]]+$"; "") else "" end;
+def pick_text($keys):
+  if type == "string" then trim_str
+  elif type == "object" then
+    (.title | trim_str) as $title |
+    (([ $keys[] as $k | .[$k] | select(type == "string") | trim_str | select(length > 0) ][0]) // "") as $body |
+    if ($title | length) > 0 and ($body | length) > 0 and ($title != $body) and (($body | startswith($title)) | not) then
+      "\($title): \($body)"
+    elif ($body | length) > 0 then $body
+    else $title
+    end
+  else ""
+  end;
+def loc_prefix:
+  if type == "object" and ((.file | trim_str | length) > 0) then
+    "`\(.file | trim_str)\(if (.line != null and .line != false and (.line | tostring | trim_str) != "" and (.line | tostring | trim_str) != "0") then ":\(.line)" else "" end)`"
+  else ""
+  end;
+'
 
 # 渲染评论正文
 render() {
@@ -276,15 +297,24 @@ render() {
     printf '%s\n' "$SUMMARY"
     if [ "$N_BLOCK" -gt 0 ]; then
         printf '\n### 阻塞项\n'
-        printf %s "$VERDICT_JSON" | jq -r \
-            '.blockers[] | "- **\(.severity)** `\(.file)\(if .line then ":\(.line)" else "" end)` — \(.why)"'
+        printf %s "$VERDICT_JSON" | jq -r "${JQ_RENDER_HELPERS}"'
+            (.blockers // [])[] |
+            (pick_text(["why","message","description","detail","body","suggestion","note"])) as $txt |
+            (if type == "object" and ((.severity | trim_str | length) > 0) then (.severity | trim_str) else "high" end) as $sev |
+            loc_prefix as $loc |
+            (if ($txt | length) > 0 then $txt else "未提供阻塞原因说明" end) as $final_txt |
+            if ($loc | length) > 0 then "- **\($sev)** \($loc) — \($final_txt)" else "- **\($sev)** \($final_txt)" end'
     fi
-    local n_notes
-    n_notes="$(printf %s "$VERDICT_JSON" | jq -r '.notes | length')"
-    if [ "$n_notes" -gt 0 ]; then
-        printf '\n### 建议（不阻塞）\n'
-        printf %s "$VERDICT_JSON" | jq -r \
-            '.notes[] | "- `\(.file)\(if .line then ":\(.line)" else "" end)` — \(.note)"'
+    local notes_md
+    notes_md="$(printf %s "$VERDICT_JSON" | jq -r "${JQ_RENDER_HELPERS}"'
+        [ (.notes // [])[] |
+          (pick_text(["note","message","description","detail","body","suggestion"])) as $txt |
+          select(($txt | length) > 0) |
+          loc_prefix as $loc |
+          if ($loc | length) > 0 then "- \($loc) — \($txt)" else "- \($txt)" end
+        ] | .[]')"
+    if [ -n "$notes_md" ]; then
+        printf '\n### 建议（不阻塞）\n%s\n' "$notes_md"
     fi
     if [ -n "$SERVED_MODEL" ]; then
         printf '\n\n<sub>由本地 codex 自动生成（served by %s；logical model %s）。critical/high = 阻塞合并。</sub>\n' \
