@@ -260,7 +260,8 @@ class ReviewRoutingTests(unittest.TestCase):
         self.assertFalse(marker.exists())
 
     def run_actual_caller(self, *, override=False, missing_config=False, bad_verdict=False,
-                          empty_output=False, blockers=False, cli_failure=False, hang=False):
+                          empty_output=False, blockers=False, cli_failure=False, hang=False,
+                          custom_verdict=None):
         """Run the real shell, renderer, provider helper and watchdog; fake only external tools."""
         root = Path(self.directory.name)
         bin_dir = root / "bin"
@@ -303,14 +304,18 @@ class ReviewRoutingTests(unittest.TestCase):
         marker = root / "SHELL_MUST_NOT_RUN"
         payload = f"+ quoted 'text' $(touch {marker}) `touch {marker}` 中文"
         capture = root / "capture.json"
+        gh_capture = root / "gh_comments.json"
         fake = bin_dir / "codex fixture"
 
-        verdict_obj = {
-            "verdict": "changes" if blockers else "pass",
-            "summary": "offline fixture",
-            "blockers": [{"file": "VitalStride/App.swift", "line": 42, "why": "P0 bug", "severity": "P0"}] if blockers else [],
-            "notes": []
-        }
+        if custom_verdict is not None:
+            verdict_obj = custom_verdict
+        else:
+            verdict_obj = {
+                "verdict": "changes" if blockers else "pass",
+                "summary": "offline fixture",
+                "blockers": [{"file": "VitalStride/App.swift", "line": 42, "why": "P0 bug", "severity": "P0"}] if blockers else [],
+                "notes": []
+            }
         if empty_output:
             verdict_str = ""
         elif bad_verdict:
@@ -338,7 +343,22 @@ class ReviewRoutingTests(unittest.TestCase):
             "'diff --git a/fixture.md b/fixture.md\\n'+os.environ['FIXTURE_DIFF'])\n"
             "elif cmd not in ('fetch','cat-file'): sys.exit(1)\n"
         )
-        (bin_dir / "gh").write_text("#!/bin/sh\nexit 0\n")
+        (bin_dir / "gh").write_text(
+            "#!" + sys.executable + "\nimport json,os,sys\nfrom pathlib import Path\n"
+            "args=sys.argv[1:]\n"
+            "out=Path(os.environ['GH_CAPTURE'])\n"
+            "existing=json.loads(out.read_text()) if out.exists() else []\n"
+            "body=None\n"
+            "if args[:2]==['pr','comment'] and '--body' in args:\n"
+            "    body=args[args.index('--body')+1]\n"
+            "elif args[:1]==['api']:\n"
+            "    for a in args:\n"
+            "        if a.startswith('body='): body=a[5:]\n"
+            "if body is not None:\n"
+            "    existing.append({'args':args,'body':body})\n"
+            "    out.write_text(json.dumps(existing))\n"
+            "sys.exit(0)\n"
+        )
         for binary in (fake, bin_dir / "git", bin_dir / "gh"):
             binary.chmod(0o700)
 
@@ -352,6 +372,7 @@ class ReviewRoutingTests(unittest.TestCase):
             "HEAD_SHA": "fixture-head",
             "BASE_REPO": "fixture/repository",
             "CAPTURE": str(capture),
+            "GH_CAPTURE": str(gh_capture),
             "FIXTURE_REPO": str(CI.parents[1]),
             "FIXTURE_DIFF": payload,
             "GATE_TIMEOUT_SECONDS": "1" if hang else "30",
@@ -447,6 +468,83 @@ class ReviewRoutingTests(unittest.TestCase):
         self.assertTrue(capture.exists(), result.stdout + result.stderr)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("codex-exec", result.stdout)
+
+    def test_actual_caller_renders_non_standard_notes_and_blockers_without_null(self):
+        verdict = {
+            "verdict": "pass",
+            "summary": "Reviewed with heterogeneous schema keys.",
+            "blockers": [],
+            "notes": [
+                {"file": "VitalStride/Sources/A.swift", "line": 10, "note": "canonical note text"},
+                {"file": "fastlane/Fastfile", "line": 32, "message": "message field note"},
+                {"file": "VitalStride/Sources/B.swift", "line": 215, "title": "Naming", "description": "description field note"},
+                {"file": "VitalStride/Sources/C.swift", "line": 1, "title": "Perf", "detail": "detail field note"},
+                {"title": "Architecture", "body": "body without file path"},
+                {"file": "VitalStride/Sources/D.swift", "line": None, "suggestion": "suggestion field note"},
+                {"file": "VitalStride/Sources/E.swift", "title": "Title-only note"},
+                "plain string note item",
+                {"file": "VitalStride/Sources/Empty.swift", "line": 99},
+                {"file": "VitalStride/Sources/Blank.swift", "message": "   "},
+            ],
+        }
+        result, _, env, _ = self.run_actual_caller(custom_verdict=verdict)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        comments = json.loads(Path(env["GH_CAPTURE"]).read_text())
+        self.assertEqual(len(comments), 1)
+        body = comments[0]["body"]
+        self.assertIn("### 建议（不阻塞）", body)
+        self.assertIn("- `VitalStride/Sources/A.swift:10` — canonical note text", body)
+        self.assertIn("- `fastlane/Fastfile:32` — message field note", body)
+        self.assertIn("- `VitalStride/Sources/B.swift:215` — Naming: description field note", body)
+        self.assertIn("- `VitalStride/Sources/C.swift:1` — Perf: detail field note", body)
+        self.assertIn("- Architecture: body without file path", body)
+        self.assertIn("- `VitalStride/Sources/D.swift` — suggestion field note", body)
+        self.assertIn("- `VitalStride/Sources/E.swift` — Title-only note", body)
+        self.assertIn("- plain string note item", body)
+        self.assertNotIn("Empty.swift", body)
+        self.assertNotIn("Blank.swift", body)
+        self.assertNotIn("— null", body)
+        self.assertNotIn("``", body)
+
+    def test_actual_caller_skips_notes_heading_when_all_notes_lack_text(self):
+        verdict = {
+            "verdict": "pass",
+            "summary": "Only empty note objects.",
+            "blockers": [],
+            "notes": [
+                {"file": "VitalStride/Sources/Empty.swift", "line": 12},
+                {"file": "VitalStride/Sources/Blank.swift", "message": "   "},
+                "",
+            ],
+        }
+        result, _, env, _ = self.run_actual_caller(custom_verdict=verdict)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        body = json.loads(Path(env["GH_CAPTURE"]).read_text())[0]["body"]
+        self.assertNotIn("### 建议（不阻塞）", body)
+        self.assertNotIn("— null", body)
+
+    def test_actual_caller_renders_non_standard_blockers_without_null(self):
+        verdict = {
+            "verdict": "changes",
+            "summary": "Found blocking defects with alternate keys.",
+            "blockers": [
+                {"file": "VitalStride/App.swift", "line": 42, "severity": "critical", "message": "message blocker reason"},
+                {"file": "VitalStride/View.swift", "severity": "high", "title": "Concurrency", "description": "description blocker reason"},
+                {"detail": "fileless detail blocker"},
+                "plain string blocker",
+            ],
+            "notes": [],
+        }
+        result, _, env, _ = self.run_actual_caller(custom_verdict=verdict)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        body = json.loads(Path(env["GH_CAPTURE"]).read_text())[0]["body"]
+        self.assertIn("### 阻塞项", body)
+        self.assertIn("- **critical** `VitalStride/App.swift:42` — message blocker reason", body)
+        self.assertIn("- **high** `VitalStride/View.swift` — Concurrency: description blocker reason", body)
+        self.assertIn("- **high** fileless detail blocker", body)
+        self.assertIn("- **high** plain string blocker", body)
+        self.assertNotIn("— null", body)
+        self.assertNotIn("``", body)
 
 
 if __name__ == "__main__":
