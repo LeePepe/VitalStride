@@ -1960,13 +1960,77 @@ private struct FABButtonStyle: ButtonStyle {
 // key BEFORE `ActiveWorkoutView` initializes, so its own @AppStorage read
 // picks up the seeded value and the Large Mode preview drives the same
 // toolbar/render path as production instead of a synthetic environment.
-private struct ActiveWorkoutPreview: View {
+struct ActiveWorkoutPreview: View {
+    private let container: ModelContainer
+    private let seededWorkout: Workout?
+
     init(largeMode: Bool) {
         UserDefaults.standard.set(largeMode ? WorkoutDisplayMode.focus.rawValue : WorkoutDisplayMode.tiled.rawValue, forKey: "activeWorkoutDisplayMode")
+        // swiftlint:disable:next force_try
+        let previewContainer = try! ModelContainerConfiguration.makeTestContainer()
+        let context = previewContainer.mainContext
+
+        let bench = Exercise(
+            nameEn: "Barbell Bench Press",
+            nameZh: "杠铃卧推",
+            muscleGroup: .chest,
+            equipment: .barbell,
+            primaryMuscles: ["pectoralis major"],
+            defaultWeightLow: 40,
+            defaultWeightMid: 60,
+            defaultWeightHigh: 80
+        )
+        let row = Exercise(
+            nameEn: "Seated Cable Row",
+            nameZh: "坐姿划船",
+            muscleGroup: .back,
+            equipment: .cable,
+            primaryMuscles: ["latissimus dorsi"],
+            defaultWeightLow: 35,
+            defaultWeightMid: 50,
+            defaultWeightHigh: 65
+        )
+        context.insert(bench)
+        context.insert(row)
+
+        let workout = Workout(type: .strength, startDate: Date().addingTimeInterval(-18 * 60))
+        context.insert(workout)
+
+        let we1 = WorkoutExercise(order: 0, exercise: bench)
+        we1.workout = workout
+        context.insert(we1)
+
+        let s1 = ExerciseSet(order: 0, weight: 40, reps: 12, setType: .warmup, isCompleted: true)
+        s1.workoutExercise = we1
+        let s2 = ExerciseSet(order: 1, weight: 60, reps: 10, setType: .working, isCompleted: true, rpe: 7)
+        s2.workoutExercise = we1
+        let s3 = ExerciseSet(order: 2, weight: 65, reps: 8, setType: .working, isCompleted: false)
+        s3.workoutExercise = we1
+        for set in [s1, s2, s3] { context.insert(set) }
+
+        let we2 = WorkoutExercise(order: 1, exercise: row)
+        we2.workout = workout
+        context.insert(we2)
+
+        let r1 = ExerciseSet(order: 0, weight: 50, reps: 10, setType: .working, isCompleted: false)
+        r1.workoutExercise = we2
+        let r2 = ExerciseSet(order: 1, weight: 55, reps: 10, setType: .working, isCompleted: false)
+        r2.workoutExercise = we2
+        for set in [r1, r2] { context.insert(set) }
+
+        do {
+            try context.save()
+        } catch {
+            logger.error("Preview fixture save failed")
+        }
+
+        self.container = previewContainer
+        self.seededWorkout = workout
     }
+
     var body: some View {
-        ActiveWorkoutView()
-            .modelContainer(try! ModelContainerConfiguration.makeTestContainer()) // swiftlint:disable:this force_try
+        ActiveWorkoutView(source: seededWorkout.map { .resume($0) } ?? .blank)
+            .modelContainer(container)
             .designThemePreview()
     }
 }

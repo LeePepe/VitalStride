@@ -608,7 +608,7 @@ private struct WorkoutRowView: View {
 // touching HealthKit, SwiftData `@Query`, or `AppNavigation`. This gives
 // the design gate reproducible captures in Xcode Previews for the report.
 
-private struct WorkoutListPreviewFixture: View {
+struct WorkoutListPreviewFixture: View {
     enum Scenario {
         case loading
         case empty
